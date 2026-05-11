@@ -1,0 +1,5 @@
+# @solcli/safety
+
+Pure-function safety gates that guard solcli write paths before any signing or submission. The package ships five composable gates: simulate-first (default-deny execution without an explicit opt-in), idempotency (reject duplicate keys), cost-budget (reject when projected fee plus net outflow exceeds the user budget), allowed-programs (reject any instruction whose `programId` is outside the allowlist) and slippage (reject when observed deviation in basis points exceeds the cap).
+
+The intent-envelope summarizer rolls a `TransactionPlan` and a `SimulationResult` into an `IntentEnvelope` describing payer, distinct programs, writable accounts, projected lamports delta, cost budget and idempotency key. `createSafetyEvaluator(deps?)` composes the gates into a `SafetyEvaluatePort` implementation; when an `emit` callback is supplied each gate result produces a `safety.gate.passed` or `safety.gate.rejected` `EventRecord`. Every function in this package is pure: no I/O, no clocks, no `process.*` access.
