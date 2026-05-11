@@ -1,0 +1,25 @@
+default_profile = "default"
+
+[default]
+network = "mainnet-beta"
+
+[default.rpc]
+timeoutMs = 30000
+
+[default.provider]
+active = "rpc-only"
+
+[default.cache]
+enabled = true
+ttlSecondsDefault = 300
+
+[default.log]
+level = "info"
+fileMaxSizeMb = 10
+fileMaxFiles = 7
+
+[devnet-test]
+network = "devnet"
+
+[devnet-test.rpc]
+primary = "https://api.devnet.solana.com"

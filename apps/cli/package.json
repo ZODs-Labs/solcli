@@ -1,0 +1,72 @@
+{
+  "name": "solcli",
+  "version": "0.0.1",
+  "description": "Cross-platform Solana CLI for humans and agents",
+  "license": "MIT",
+  "author": "ZODs Labs <support@zods.pro>",
+  "homepage": "https://github.com/ZODs-Labs/solcli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZODs-Labs/solcli.git",
+    "directory": "apps/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/ZODs-Labs/solcli/issues"
+  },
+  "keywords": [
+    "solana",
+    "cli",
+    "blockchain",
+    "crypto",
+    "wallet",
+    "rpc",
+    "agent",
+    "automation",
+    "devtools"
+  ],
+  "type": "module",
+  "bin": {
+    "solcli": "dist/bin/solcli.js"
+  },
+  "files": [
+    "dist/bin/solcli.js",
+    "dist/bin/solcli.js.map",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "build": "tsx scripts/build-registry.ts && tsup",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --passWithNoTests",
+    "dev": "tsup --watch",
+    "prepack": "tsx scripts/prepack.ts"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "catalog:",
+    "citty": "catalog:",
+    "pino": "catalog:",
+    "pino-roll": "catalog:",
+    "proper-lockfile": "catalog:",
+    "update-notifier": "catalog:"
+  },
+  "devDependencies": {
+    "@solcli/cache": "workspace:*",
+    "@solcli/config": "workspace:*",
+    "@solcli/contracts": "workspace:*",
+    "@solcli/errors": "workspace:*",
+    "@solcli/logger": "workspace:*",
+    "@solcli/output": "workspace:*",
+    "@solcli/platform": "workspace:*",
+    "@solcli/prompts": "workspace:*",
+    "@solcli/providers": "workspace:*",
+    "@solcli/secrets": "workspace:*",
+    "@types/node": "catalog:",
+    "execa": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "vitest": "catalog:"
+  }
+}
