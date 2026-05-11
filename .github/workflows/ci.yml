@@ -1,10 +1,9 @@
 name: ci
 
+# Workflow disabled while v0 stabilises. Triggered only manually via
+# `gh workflow run ci` or the Actions tab. Re-enable by restoring the
+# `push` / `pull_request` triggers below when ready.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
