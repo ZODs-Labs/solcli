@@ -66,6 +66,8 @@ export interface Context {
   prompts: PromptsService;
   cache: Cache;
   providers: ProviderRegistry;
+  /** Provider registrations that failed during bootstrap. Surfaced by `doctor`. */
+  providerErrors: readonly ProviderRegistrationFailure[];
   ops: Operations;
   versionCheck: VersionCheck;
   errors: ErrorFactory;
@@ -182,7 +184,12 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
     active: resolved.provider.active,
     fallbackOrder: resolved.provider.fallback ?? [],
   });
-  await registerConfiguredProviders(providers, secrets, resolved.provider);
+  const providerErrors = await registerConfiguredProviders(
+    providers,
+    secrets,
+    logger,
+    resolved.provider,
+  );
   const ops = createOperations({ registry: providers, logger });
 
   const pkg = await readPackageJson();
@@ -213,6 +220,7 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
     prompts,
     cache,
     providers,
+    providerErrors,
     ops,
     versionCheck,
     errors,
@@ -279,16 +287,24 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
   return ctx;
 }
 
+export interface ProviderRegistrationFailure {
+  readonly provider: string;
+  readonly code: string;
+  readonly message: string;
+}
+
 async function registerConfiguredProviders(
   providers: ProviderRegistry,
   secrets: SecretsStore,
+  logger: Logger,
   providerConfig: {
     active: string;
     fallback?: string[];
     helius?: ProviderVendorConfig;
     triton?: ProviderVendorConfig;
   },
-): Promise<void> {
+): Promise<readonly ProviderRegistrationFailure[]> {
+  const failures: ProviderRegistrationFailure[] = [];
   for (const name of knownProviderNames) {
     const cfg = providerConfig[name];
     const referenced =
@@ -296,30 +312,50 @@ async function registerConfiguredProviders(
       providerConfig.fallback?.includes(name) === true ||
       cfg !== undefined;
     if (!referenced) continue;
-    if (cfg === undefined) {
-      throw new ConfigError(
-        `Provider '${name}' is referenced but provider.${name} is not configured`,
-        {
-          details: { provider: name },
-        },
-      );
-    }
-    const apiKey = await readConfiguredSecret(secrets, name, cfg.apiKeySecret, "apiKeySecret");
-    const bearer = await readConfiguredSecret(secrets, name, cfg.bearerSecret, "bearerSecret");
-    if (apiKey === undefined && bearer === undefined) {
-      throw new ConfigError(
-        `Provider '${name}' requires apiKeySecret or bearerSecret in provider.${name}`,
-        { details: { provider: name } },
-      );
-    }
-    if (name === "helius") {
-      providers.register(createHeliusProvider(providerOptions({ apiKey, endpoint: cfg.endpoint })));
-    } else {
-      providers.register(
-        createTritonProvider(providerOptions({ apiKey, bearer, endpoint: cfg.endpoint })),
+    try {
+      if (cfg === undefined) {
+        throw new ConfigError(
+          `Provider '${name}' is referenced but provider.${name} is not configured`,
+          { details: { provider: name } },
+        );
+      }
+      const apiKey = await readConfiguredSecret(secrets, name, cfg.apiKeySecret, "apiKeySecret");
+      const bearer = await readConfiguredSecret(secrets, name, cfg.bearerSecret, "bearerSecret");
+      if (apiKey === undefined && bearer === undefined) {
+        throw new ConfigError(
+          `Provider '${name}' requires apiKeySecret or bearerSecret in provider.${name}`,
+          { details: { provider: name } },
+        );
+      }
+      if (name === "helius") {
+        providers.register(
+          createHeliusProvider(providerOptions({ apiKey, endpoint: cfg.endpoint })),
+        );
+      } else {
+        providers.register(
+          createTritonProvider(providerOptions({ apiKey, bearer, endpoint: cfg.endpoint })),
+        );
+      }
+    } catch (err) {
+      // Provider misconfiguration must not crash the CLI bootstrap; commands
+      // whose whole purpose is to fix the configuration (`config set`,
+      // `secrets set`, `doctor`) need to keep working. Record the failure so
+      // doctor can surface it, and let port-resolution fail later with a
+      // clear typed error when an operation actually needs that provider.
+      const isErr = err instanceof Error;
+      const code =
+        isErr && "code" in err && typeof (err as { code?: string }).code === "string"
+          ? (err as { code: string }).code
+          : "SOLCLI_E_PROVIDER_REGISTER_FAILED";
+      const message = isErr ? err.message : String(err);
+      failures.push({ provider: name, code, message });
+      logger.warn(
+        { provider: name, code, message },
+        "provider registration failed; commands that depend on this provider will fail until configuration is fixed",
       );
     }
   }
+  return failures;
 }
 
 function providerOptions<T extends Record<string, string | undefined>>(

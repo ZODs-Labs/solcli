@@ -9,7 +9,8 @@
       "!**/dist",
       "!**/.tsc-build",
       "!coverage",
-      "!apps/cli/src/generated"
+      "!apps/cli/src/generated",
+      "!.claude"
     ]
   },
   "formatter": {
