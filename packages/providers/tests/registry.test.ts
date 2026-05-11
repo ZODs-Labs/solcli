@@ -102,4 +102,11 @@ describe("manifest", () => {
       /not declared/,
     );
   });
+
+  it("exposes manifest ports as runtime read-only", () => {
+    const manifest = defineManifest("v", "1", ["getBalance"]);
+    const mutable = manifest.ports as Set<PortName>;
+    expect(typeof mutable.add).toBe("undefined");
+    expect([...manifest.ports]).toEqual(["getBalance"]);
+  });
 });
