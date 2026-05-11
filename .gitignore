@@ -14,3 +14,5 @@ apps/cli/.tsc-build/
 *.tmp
 .claude/*
 !.claude/settings.json
+
+.env*
