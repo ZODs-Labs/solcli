@@ -1,0 +1,14 @@
+node_modules/
+dist/
+**/dist/
+coverage/
+*.log
+.DS_Store
+.idea/
+.vscode/
+apps/cli/src/generated/
+apps/cli/LICENSE
+apps/cli/.tsc-build/
+.tmp/
+*.tmp
+.claude/

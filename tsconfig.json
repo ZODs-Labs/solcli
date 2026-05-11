@@ -1,0 +1,18 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/contracts" },
+    { "path": "./packages/errors" },
+    { "path": "./packages/platform" },
+    { "path": "./packages/utils" },
+    { "path": "./packages/logger" },
+    { "path": "./packages/output" },
+    { "path": "./packages/prompts" },
+    { "path": "./packages/config" },
+    { "path": "./packages/secrets" },
+    { "path": "./packages/cache" },
+    { "path": "./packages/providers" },
+    { "path": "./packages/solana-stubs" },
+    { "path": "./apps/cli" }
+  ]
+}

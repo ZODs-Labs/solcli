@@ -1,0 +1,41 @@
+{
+  "name": "solcli-workspace",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Workspace for solcli, a cross-platform Solana CLI for humans and agents",
+  "license": "MIT",
+  "author": "ZODs Labs <support@zods.pro>",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "packageManager": "pnpm@11.0.9",
+  "scripts": {
+    "typecheck": "pnpm --filter solcli exec tsx scripts/build-registry.ts && tsc -b --pretty false",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "build": "pnpm -r --sort build",
+    "dev": "pnpm --filter solcli dev",
+    "verify:architecture": "tsx scripts/verify-boundaries.ts",
+    "verify:deps": "tsx scripts/verify-deps.ts",
+    "perf:startup": "tsx scripts/perf-startup.ts",
+    "package:smoke": "tsx scripts/package-smoke.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "@types/proper-lockfile": "catalog:",
+    "@types/update-notifier": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "execa": "catalog:",
+    "msw": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

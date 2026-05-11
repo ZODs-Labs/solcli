@@ -1,0 +1,35 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  esbuild: true
+  msw: false
+
+catalog:
+  "@biomejs/biome": ^2.4.15
+  "@clack/prompts": ^1.3.0
+  "@napi-rs/keyring": ^1.3.0
+  "@noble/hashes": ^2.2.0
+  "@types/node": ^25.6.2
+  "@types/proper-lockfile": ^4.1.4
+  "@types/update-notifier": ^6.0.8
+  "@vitest/coverage-v8": ^4.1.5
+  citty: ^0.2.2
+  cli-table3: ^0.6.5
+  csv-stringify: ^6.7.0
+  env-paths: ^4.0.0
+  execa: ^9.6.1
+  lru-cache: ^11.3.6
+  msw: ^2.14.6
+  picocolors: ^1.1.1
+  pino: ^10.3.1
+  pino-roll: ^4.0.0
+  proper-lockfile: ^4.1.2
+  smol-toml: ^1.6.1
+  tsup: ^8.5.1
+  tsx: ^4.21.0
+  typescript: ^6.0.3
+  update-notifier: ^7.3.1
+  vitest: ^4.1.5
+  zod: ^4.4.3
