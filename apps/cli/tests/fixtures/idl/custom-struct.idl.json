@@ -1,0 +1,21 @@
+{
+  "address": "Custom1111111111111111111111111111111111111",
+  "metadata": { "name": "custom_struct", "version": "0.0.1", "spec": "0.1.0" },
+  "instructions": [
+    {
+      "name": "doThing",
+      "accounts": [
+        { "name": "authority", "writable": false, "signer": true }
+      ],
+      "args": [
+        { "name": "payload", "type": { "defined": "ComplexPayload" } }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "name": "ComplexPayload",
+      "type": { "kind": "struct", "fields": [{ "name": "x", "type": "u64" }] }
+    }
+  ]
+}

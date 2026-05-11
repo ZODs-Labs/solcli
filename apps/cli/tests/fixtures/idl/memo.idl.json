@@ -1,0 +1,15 @@
+{
+  "address": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+  "metadata": { "name": "memo", "version": "0.1.0", "spec": "0.1.0" },
+  "instructions": [
+    {
+      "name": "memo",
+      "accounts": [
+        { "name": "payer", "writable": true, "signer": true }
+      ],
+      "args": [
+        { "name": "message", "type": "string" }
+      ]
+    }
+  ]
+}
