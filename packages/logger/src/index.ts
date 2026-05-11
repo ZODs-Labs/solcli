@@ -83,9 +83,18 @@ async function buildPinoLogger(opts: BuildLoggerOptions): Promise<PinoLogger> {
 
 function lazyWrap(opts: BuildLoggerOptions): Logger {
   let loggerPromise: Promise<PinoLogger> | undefined;
+  const pendingWrites = new Set<Promise<void>>();
   const getLogger = (): Promise<PinoLogger> => {
     loggerPromise ??= buildPinoLogger(opts);
     return loggerPromise;
+  };
+  const track = (writePromise: Promise<void>): void => {
+    pendingWrites.add(writePromise);
+    void writePromise
+      .finally(() => pendingWrites.delete(writePromise))
+      .catch(() => {
+        // logging is best effort
+      });
   };
 
   const write = (
@@ -93,7 +102,7 @@ function lazyWrap(opts: BuildLoggerOptions): Logger {
     obj?: unknown,
     msg?: string,
   ): void => {
-    void getLogger().then((logger) => logger[level](obj as object, msg));
+    track(getLogger().then((logger) => logger[level](obj as object, msg)));
   };
 
   return {
@@ -104,7 +113,9 @@ function lazyWrap(opts: BuildLoggerOptions): Logger {
     error: (obj, msg) => write("error", obj, msg),
     child: (bindings) => childLazyWrap(getLogger, bindings as Record<string, unknown>),
     flush: async () => {
-      const logger = await getLogger();
+      if (!loggerPromise) return;
+      await Promise.allSettled([...pendingWrites]);
+      const logger = await loggerPromise;
       await flushPino(logger);
     },
   };
@@ -115,16 +126,25 @@ function childLazyWrap(
   bindings: Record<string, unknown>,
 ): Logger {
   let childPromise: Promise<PinoLogger> | undefined;
+  const pendingWrites = new Set<Promise<void>>();
   const getChild = (): Promise<PinoLogger> => {
     childPromise ??= getParent().then((parent) => parent.child(bindings));
     return childPromise;
+  };
+  const track = (writePromise: Promise<void>): void => {
+    pendingWrites.add(writePromise);
+    void writePromise
+      .finally(() => pendingWrites.delete(writePromise))
+      .catch(() => {
+        // logging is best effort
+      });
   };
   const write = (
     level: "trace" | "debug" | "info" | "warn" | "error",
     obj?: unknown,
     msg?: string,
   ): void => {
-    void getChild().then((logger) => logger[level](obj as object, msg));
+    track(getChild().then((logger) => logger[level](obj as object, msg)));
   };
   return {
     trace: (obj, msg) => write("trace", obj, msg),
@@ -134,7 +154,9 @@ function childLazyWrap(
     error: (obj, msg) => write("error", obj, msg),
     child: (nextBindings) => childLazyWrap(getChild, nextBindings as Record<string, unknown>),
     flush: async () => {
-      const child = await getChild();
+      if (!childPromise) return;
+      await Promise.allSettled([...pendingWrites]);
+      const child = await childPromise;
       await flushPino(child);
     },
   };
