@@ -2,6 +2,7 @@ import type { ErrorEnvelope, OutputFormatter } from "@solcli/contracts";
 import { shouldColor, supportsUnicode, terminalWidth } from "@solcli/platform";
 import Table from "cli-table3";
 import pc from "picocolors";
+import { writeChunk } from "./write-stream.js";
 
 export interface HumanFormatterOptions {
   stdout?: NodeJS.WritableStream;
@@ -114,9 +115,7 @@ export class HumanFormatter implements OutputFormatter {
   }
 
   private writeLine(s: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.out.write(`${s}\n`, (e) => (e ? reject(e) : resolve()));
-    });
+    return writeChunk(this.out, `${s}\n`);
   }
 }
 

@@ -1,4 +1,5 @@
 import type { ErrorEnvelope, OutputFormatter, SuccessEnvelope } from "@solcli/contracts";
+import { writeChunk } from "./write-stream.js";
 
 export interface JsonFormatterOptions {
   stdout?: NodeJS.WritableStream;
@@ -33,8 +34,6 @@ export class JsonFormatter implements OutputFormatter {
   }
 
   private writeRaw(s: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.out.write(`${s}\n`, (err) => (err ? reject(err) : resolve()));
-    });
+    return writeChunk(this.out, `${s}\n`);
   }
 }

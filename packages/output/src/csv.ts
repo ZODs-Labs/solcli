@@ -1,6 +1,7 @@
 import type { ErrorEnvelope, OutputFormatter } from "@solcli/contracts";
 import { UsageError } from "@solcli/errors";
-import { stringify } from "csv-stringify";
+import { type Options, type Stringifier, stringify } from "csv-stringify";
+import { writeChunk } from "./write-stream.js";
 
 export interface CsvFormatterOptions {
   stdout?: NodeJS.WritableStream;
@@ -29,17 +30,28 @@ export class CsvFormatter implements OutputFormatter {
   }
 
   async writeStream<T>(records: AsyncIterable<T>): Promise<void> {
-    const collected: T[] = [];
-    for await (const r of records) collected.push(r);
-    await this.writeArray(collected);
+    const iterator = records[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    if (first.done === true) {
+      await writeChunk(this.out, "");
+      return;
+    }
+    const firstRow = flattenForCsv(first.value);
+    const headers = Object.keys(firstRow);
+    const stringifier = stringify(csvOptions(headers));
+    const completion = this.pipeStringifier(stringifier);
+    await writeRecord(stringifier, firstRow);
+    for (;;) {
+      const next = await iterator.next();
+      if (next.done === true) break;
+      await writeRecord(stringifier, flattenForCsv(next.value));
+    }
+    stringifier.end();
+    await completion;
   }
 
   async error(env: ErrorEnvelope): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.err.write(`${JSON.stringify({ schemaVersion: 1, error: env })}\n`, (e) =>
-        e ? reject(e) : resolve(),
-      );
-    });
+    return writeChunk(this.err, `${JSON.stringify({ schemaVersion: 1, error: env })}\n`);
   }
 
   private writeArray<T>(rows: T[]): Promise<void> {
@@ -50,19 +62,47 @@ export class CsvFormatter implements OutputFormatter {
       }
       const flat = rows.map((r) => flattenForCsv(r));
       const headers = Object.keys(flat[0] as Record<string, unknown>);
-      stringify(
-        flat,
-        { header: true, columns: headers, cast: { object: csvObjectCast } },
-        (err, str) => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          this.out.write(str, (e) => (e ? reject(e) : resolve()));
-        },
-      );
+      stringify(flat, csvOptions(headers), (err, str) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        writeChunk(this.out, str).then(resolve, reject);
+      });
     });
   }
+
+  private pipeStringifier(stringifier: Stringifier): Promise<void> {
+    return new Promise((resolve, reject) => {
+      stringifier.on("data", (chunk: string | Buffer) => {
+        stringifier.pause();
+        writeChunk(this.out, chunk.toString()).then(
+          () => stringifier.resume(),
+          (err: unknown) => reject(err),
+        );
+      });
+      stringifier.once("error", reject);
+      stringifier.once("end", resolve);
+    });
+  }
+}
+
+function csvOptions(headers: string[]): Options {
+  return {
+    header: true,
+    columns: headers,
+    cast: { object: csvObjectCast },
+    escape_formulas: true,
+  };
+}
+
+function writeRecord(stringifier: Stringifier, record: Record<string, unknown>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    stringifier.write(record, (err: Error | null | undefined) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
 }
 
 function csvObjectCast(value: object): string {
