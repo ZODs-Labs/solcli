@@ -8,8 +8,17 @@ export const RpcConfigSchema = z.object({
   timeoutMs: z.number().int().positive().default(30_000),
 });
 
+export const ProviderVendorConfigSchema = z.object({
+  apiKeySecret: z.string().min(1).optional(),
+  bearerSecret: z.string().min(1).optional(),
+  endpoint: z.string().url().optional(),
+});
+
 export const ProviderConfigSchema = z.object({
   active: z.string().min(1).default("rpc-only"),
+  fallback: z.array(z.string().min(1)).optional(),
+  helius: ProviderVendorConfigSchema.optional(),
+  triton: ProviderVendorConfigSchema.optional(),
 });
 
 export const CacheConfigSchema = z.object({

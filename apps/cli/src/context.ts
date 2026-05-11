@@ -12,15 +12,21 @@ import type {
   PortName,
   PromptsService,
   ProviderRegistry,
+  ProviderVendorConfig,
   SecretsStore,
   VersionCheck,
 } from "@solcli/contracts";
-import { NonInteractiveError, SecretError, UsageError } from "@solcli/errors";
+import { ConfigError, NonInteractiveError, SecretError, UsageError } from "@solcli/errors";
 import { buildLogger } from "@solcli/logger";
 import { createFormatter } from "@solcli/output";
 import { buildPaths, registerAbortController } from "@solcli/platform";
 import { createPrompts } from "@solcli/prompts";
-import { ALL_PORT_NAMES, createProviderRegistry } from "@solcli/providers";
+import {
+  ALL_PORT_NAMES,
+  createHeliusProvider,
+  createProviderRegistry,
+  createTritonProvider,
+} from "@solcli/providers";
 import { createSecretsStore } from "@solcli/secrets";
 import { createOperations, type Operations } from "./operations/index.js";
 import { createVersionCheck } from "./version-check.js";
@@ -72,6 +78,7 @@ const errors: ErrorFactory = {
 };
 
 const storage = new AsyncLocalStorage<Context>();
+const knownProviderNames = ["helius", "triton"] as const;
 
 export function setCurrentContext(ctx: Context): void {
   storage.enterWith(ctx);
@@ -145,7 +152,11 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
     ttlSecondsDefault: resolved.cache.ttlSecondsDefault,
   });
 
-  const providers = createProviderRegistry({ active: resolved.provider.active });
+  const providers = createProviderRegistry({
+    active: resolved.provider.active,
+    fallbackOrder: resolved.provider.fallback ?? [],
+  });
+  await registerConfiguredProviders(providers, secrets, resolved.provider);
   const ops = createOperations({ registry: providers, logger });
 
   const pkg = await readPackageJson();
@@ -189,4 +200,73 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
     },
   };
   return ctx;
+}
+
+async function registerConfiguredProviders(
+  providers: ProviderRegistry,
+  secrets: SecretsStore,
+  providerConfig: {
+    active: string;
+    fallback?: string[];
+    helius?: ProviderVendorConfig;
+    triton?: ProviderVendorConfig;
+  },
+): Promise<void> {
+  for (const name of knownProviderNames) {
+    const cfg = providerConfig[name];
+    const referenced =
+      providerConfig.active === name ||
+      providerConfig.fallback?.includes(name) === true ||
+      cfg !== undefined;
+    if (!referenced) continue;
+    if (cfg === undefined) {
+      throw new ConfigError(
+        `Provider '${name}' is referenced but provider.${name} is not configured`,
+        {
+          details: { provider: name },
+        },
+      );
+    }
+    const apiKey = await readConfiguredSecret(secrets, name, cfg.apiKeySecret, "apiKeySecret");
+    const bearer = await readConfiguredSecret(secrets, name, cfg.bearerSecret, "bearerSecret");
+    if (apiKey === undefined && bearer === undefined) {
+      throw new ConfigError(
+        `Provider '${name}' requires apiKeySecret or bearerSecret in provider.${name}`,
+        { details: { provider: name } },
+      );
+    }
+    if (name === "helius") {
+      providers.register(createHeliusProvider(providerOptions({ apiKey, endpoint: cfg.endpoint })));
+    } else {
+      providers.register(
+        createTritonProvider(providerOptions({ apiKey, bearer, endpoint: cfg.endpoint })),
+      );
+    }
+  }
+}
+
+function providerOptions<T extends Record<string, string | undefined>>(
+  values: T,
+): { [K in keyof T]?: string } {
+  const out: Partial<Record<keyof T, string>> = {};
+  for (const [key, value] of Object.entries(values) as Array<[keyof T, string | undefined]>) {
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
+}
+
+async function readConfiguredSecret(
+  secrets: SecretsStore,
+  provider: string,
+  secretName: string | undefined,
+  field: string,
+): Promise<string | undefined> {
+  if (secretName === undefined) return undefined;
+  const value = await secrets.get(secretName);
+  if (value === null) {
+    throw new ConfigError(`Provider '${provider}' references missing secret '${secretName}'`, {
+      details: { provider, field, secretName },
+    });
+  }
+  return value;
 }

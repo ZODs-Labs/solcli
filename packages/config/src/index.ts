@@ -6,4 +6,10 @@ export {
   FileConfigManager,
 } from "./manager.js";
 export { deepMerge, envOverrides, resolveConfig } from "./precedence.js";
-export { ConfigFileSchema, ConfigSchema, LogLevelSchema } from "./schema.js";
+export {
+  ConfigFileSchema,
+  ConfigSchema,
+  LogLevelSchema,
+  ProviderConfigSchema,
+  ProviderVendorConfigSchema,
+} from "./schema.js";

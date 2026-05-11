@@ -22,6 +22,21 @@ describe("ConfigSchema", () => {
     const result = ConfigSchema.safeParse({ cache: { ttlSecondsDefault: -1 } });
     expect(result.success).toBe(false);
   });
+
+  it("accepts provider fallback and vendor secret references", () => {
+    const result = ConfigSchema.safeParse({
+      provider: {
+        active: "helius",
+        fallback: ["triton"],
+        helius: { apiKeySecret: "helius.apiKey", endpoint: "https://example.com" },
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.provider.fallback).toEqual(["triton"]);
+      expect(result.data.provider.helius?.apiKeySecret).toBe("helius.apiKey");
+    }
+  });
 });
 
 describe("ConfigFileSchema", () => {

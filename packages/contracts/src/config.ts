@@ -21,6 +21,15 @@ export interface LogConfig {
 
 export interface ProviderConfig {
   active: string;
+  fallback?: string[];
+  helius?: ProviderVendorConfig;
+  triton?: ProviderVendorConfig;
+}
+
+export interface ProviderVendorConfig {
+  apiKeySecret?: string;
+  bearerSecret?: string;
+  endpoint?: string;
 }
 
 export interface Config {
