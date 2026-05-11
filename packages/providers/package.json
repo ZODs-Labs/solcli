@@ -15,10 +15,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@solana/kit": "catalog:",
+    "@solana/transaction-confirmation": "catalog:",
     "@solcli/contracts": "workspace:*",
     "@solcli/errors": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "vitest": "catalog:"
   }
 }

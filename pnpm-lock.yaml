@@ -39,6 +39,9 @@ catalogs:
     '@solana/kit':
       specifier: ^6.9.0
       version: 6.9.0
+    '@solana/transaction-confirmation':
+      specifier: ^6.9.0
+      version: 6.9.0
     '@types/node':
       specifier: ^25.6.2
       version: 25.6.2
@@ -446,6 +449,12 @@ importers:
 
   packages/providers:
     dependencies:
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
+      '@solana/transaction-confirmation':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       '@solcli/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -456,6 +465,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.5(@types/node@25.6.2)(@vitest/coverage-v8@4.1.5)(msw@2.14.6(@types/node@25.6.2)(typescript@6.0.3))(vite@7.3.3(@types/node@25.6.2)(tsx@4.21.0))
 
   packages/safety:
     dependencies:

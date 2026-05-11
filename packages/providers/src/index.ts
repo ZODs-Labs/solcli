@@ -1,3 +1,9 @@
+export {
+  type ConfirmFnDeps,
+  type ConfirmSignatureFn,
+  type ConfirmStageResult,
+  createConfirmSignatureFn,
+} from "./_base/rpc-confirm.js";
 export * from "./manifest.js";
 export { ALL_PORT_NAMES } from "./port-names.js";
 export * from "./registry.js";

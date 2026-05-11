@@ -19,6 +19,7 @@ catalog:
   "@solana-program/token": ^0.13.0
   "@solana-program/token-2022": ^0.9.0
   "@solana/kit": ^6.9.0
+  "@solana/transaction-confirmation": ^6.9.0
   "@types/node": ^25.6.2
   "@types/proper-lockfile": ^4.1.4
   "@types/update-notifier": ^6.0.8
