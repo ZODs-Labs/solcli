@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { Cache, CacheKey, Paths } from "@solcli/contracts";
 import { IoError } from "@solcli/errors";
@@ -10,6 +10,7 @@ export interface TwoTierCacheOptions {
   enabled?: boolean;
   ttlSecondsDefault?: number;
   maxItems?: number;
+  maxDiskItems?: number;
 }
 
 interface DiskEntry<T> {
@@ -24,12 +25,14 @@ interface MemEntry {
 export class TwoTierCache implements Cache {
   private readonly enabled: boolean;
   private readonly defaultTtl: number;
+  private readonly maxDiskItems: number;
   private readonly lru: LRUCache<string, MemEntry>;
   private readonly diskRoot: string;
 
   constructor(opts: TwoTierCacheOptions) {
     this.enabled = opts.enabled ?? true;
     this.defaultTtl = opts.ttlSecondsDefault ?? 300;
+    this.maxDiskItems = opts.maxDiskItems ?? opts.maxItems ?? 500;
     this.diskRoot = path.join(opts.paths.cache, "data");
     this.lru = new LRUCache<string, MemEntry>({
       max: opts.maxItems ?? 500,
@@ -90,6 +93,7 @@ export class TwoTierCache implements Cache {
       const tmp = `${file}.tmp.${process.pid}`;
       await writeFile(tmp, JSON.stringify(entry), { mode: 0o600 });
       await rename(tmp, file);
+      await this.pruneDisk();
     } catch (err: unknown) {
       throw new IoError("Cache write failed", { cause: err as Error });
     }
@@ -103,8 +107,12 @@ export class TwoTierCache implements Cache {
   }
 
   async clear(): Promise<void> {
-    if (!this.enabled) return;
     this.lru.clear();
+    try {
+      await rm(this.diskRoot, { recursive: true, force: true });
+    } catch (err: unknown) {
+      throw new IoError("Cache clear failed", { cause: err as Error });
+    }
   }
 
   private async deleteByHash(hash: string): Promise<void> {
@@ -115,6 +123,27 @@ export class TwoTierCache implements Cache {
         throw new IoError("Cache delete failed", { cause: err as Error });
       }
     }
+  }
+
+  private async pruneDisk(): Promise<void> {
+    if (this.maxDiskItems <= 0) return;
+    let entries: string[];
+    try {
+      entries = await readdir(this.diskRoot);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
+      throw err;
+    }
+    const files = await Promise.all(
+      entries
+        .filter((entry) => entry.endsWith(".json"))
+        .map(async (entry) => {
+          const file = path.join(this.diskRoot, entry);
+          return { file, mtimeMs: (await stat(file)).mtimeMs };
+        }),
+    );
+    files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    await Promise.all(files.slice(this.maxDiskItems).map((entry) => unlink(entry.file)));
   }
 }
 

@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -60,5 +60,26 @@ describe("TwoTierCache", () => {
       paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
     });
     expect(await c2.get(key)).toBe("value-persisted");
+  });
+
+  it("clear removes disk entries", async () => {
+    const { dir, cache: c } = await makeCache();
+    await c.set(key, "value-persisted", 600);
+    await c.clear();
+    const files = await readdir(join(dir, "data")).catch(() => []);
+    expect(files).toEqual([]);
+  });
+
+  it("prunes disk entries to maxDiskItems", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "solcli-cache-"));
+    const c = new TwoTierCache({
+      paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
+      maxItems: 10,
+      maxDiskItems: 1,
+    });
+    await c.set({ namespace: "test", call: "a", params: "1" }, "a", 600);
+    await c.set({ namespace: "test", call: "b", params: "2" }, "b", 600);
+    const files = await readdir(join(dir, "data"));
+    expect(files.filter((f) => f.endsWith(".json"))).toHaveLength(1);
   });
 });
