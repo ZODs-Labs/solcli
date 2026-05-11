@@ -1,6 +1,7 @@
-import type { OwnerAddress, Pubkey } from "@solcli/contracts";
+import type { Pubkey } from "@solcli/contracts";
 import { defineCommand } from "citty";
 import { type Context, withContext } from "../../context.js";
+import { resolvePort } from "../../operations/resolve-port.js";
 
 const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 const BASE58_RE = new RegExp(`^[${BASE58_ALPHABET}]{32,44}$`);
@@ -34,18 +35,31 @@ export default defineCommand({
   },
   async run({ args }) {
     return withContext(async (ctx) => {
-      const owner = brandPubkey(ctx, String(args.address)) as unknown as OwnerAddress;
-      // TODO: wiring -- swap ctx.ops.getBalance for ctx.ports.getAccountInfo
-      // once the GetAccountInfo port lands and is registered.
-      const lamports = await ctx.ops.getBalance(owner, {
+      const address = brandPubkey(ctx, String(args.address));
+      const port = resolvePort(ctx.providers, "getAccountInfo").port;
+      const info = await port.getAccountInfo(address, {
         signal: ctx.abortController.signal,
       });
+
+      if (info === null) {
+        await ctx.output.write({
+          kind: "account.info",
+          data: { address, exists: false },
+          meta: { network: String(args.network) },
+        });
+        return;
+      }
+
       await ctx.output.write({
         kind: "account.info",
         data: {
-          address: owner,
-          lamports: (lamports as unknown as bigint).toString(),
-          // TODO: wiring -- include owner, executable, dataLen, rentEpoch.
+          address,
+          exists: true,
+          owner: info.owner,
+          lamports: (info.lamports as unknown as bigint).toString(),
+          executable: info.executable,
+          dataLen: info.data.length,
+          ...(info.rentEpoch !== undefined ? { rentEpoch: info.rentEpoch.toString() } : {}),
         },
         meta: { network: String(args.network) },
       });

@@ -48,6 +48,7 @@ describe("createHeliusProvider", () => {
   describe("port adapters", () => {
     it("declares the standard RPC port set", () => {
       expect([...HELIUS_MANIFEST.ports]).toEqual([
+        "getAccountInfo",
         "getBalance",
         "getTokenBalances",
         "simulateTransaction",

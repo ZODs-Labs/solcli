@@ -1,5 +1,6 @@
 import type {
   Address,
+  GetAccountInfoApi,
   GetBalanceApi,
   GetSignaturesForAddressApi,
   GetTokenAccountsByOwnerApi,
@@ -11,6 +12,8 @@ import type {
   Slot,
 } from "@solana/kit";
 import type {
+  AccountInfo,
+  GetAccountInfoPort,
   GetBalancePort,
   GetTokenBalancesPort,
   GetTransactionHistoryPort,
@@ -18,6 +21,7 @@ import type {
   MintAddress,
   OwnerAddress,
   PortCallOptions,
+  Pubkey,
   SimulateTransactionPort,
   TokenAccount,
   TokenAmount,
@@ -35,7 +39,8 @@ import { encodeMessageAsBase64Wire } from "./encode-message.js";
  * (priority-fee estimate, DAS) are layered by each vendor module separately.
  */
 export type StandardRpcClient = Rpc<
-  GetBalanceApi &
+  GetAccountInfoApi &
+    GetBalanceApi &
     GetTokenAccountsByOwnerApi &
     SimulateTransactionApi &
     GetTransactionApi &
@@ -49,11 +54,37 @@ export type StandardRpcClient = Rpc<
  */
 export function createStandardRpcPorts(rpc: StandardRpcClient): PortBindings {
   return {
+    getAccountInfo: makeGetAccountInfoPort(rpc),
     getBalance: makeGetBalancePort(rpc),
     getTokenBalances: makeGetTokenBalancesPort(rpc),
     simulateTransaction: makeSimulateTransactionPort(rpc),
     getTransaction: makeGetTransactionPort(rpc),
     getTransactionHistory: makeGetTransactionHistoryPort(rpc),
+  };
+}
+
+function makeGetAccountInfoPort(rpc: StandardRpcClient): GetAccountInfoPort {
+  return {
+    async getAccountInfo(address: Pubkey, opts?: PortCallOptions): Promise<AccountInfo | null> {
+      const send = rpc.getAccountInfo(address as Address, {
+        commitment: "confirmed",
+        encoding: "base64",
+      });
+      const response = await callRpc("getAccountInfo", () =>
+        send.send(opts?.signal !== undefined ? { abortSignal: opts.signal } : {}),
+      );
+      if (response.value === null) return null;
+      const v = response.value;
+      const [b64, encoding] = v.data;
+      const data =
+        encoding === "base64" ? new Uint8Array(Buffer.from(b64, "base64")) : new Uint8Array();
+      return {
+        owner: v.owner as Pubkey,
+        lamports: v.lamports,
+        data,
+        executable: v.executable,
+      };
+    },
   };
 }
 

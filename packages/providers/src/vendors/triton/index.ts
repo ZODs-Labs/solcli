@@ -5,6 +5,7 @@ import { createStandardRpcPorts, type StandardRpcClient } from "../../_base/rpc-
 import { defineManifest, makeProviderInstance } from "../../manifest.js";
 
 export const TRITON_MANIFEST: ProviderManifest = defineManifest("triton", "1", [
+  "getAccountInfo",
   "getBalance",
   "getTokenBalances",
   "simulateTransaction",

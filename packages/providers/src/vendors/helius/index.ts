@@ -5,6 +5,7 @@ import { createStandardRpcPorts, type StandardRpcClient } from "../../_base/rpc-
 import { defineManifest, makeProviderInstance } from "../../manifest.js";
 
 export const HELIUS_MANIFEST: ProviderManifest = defineManifest("helius", "1", [
+  "getAccountInfo",
   "getBalance",
   "getTokenBalances",
   "simulateTransaction",

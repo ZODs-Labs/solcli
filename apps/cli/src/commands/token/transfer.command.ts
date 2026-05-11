@@ -205,16 +205,28 @@ export default defineCommand({
       }
       const amount = brandTokenAmount(ctx, BigInt(rawAmount));
 
-      // Token-2022 refusal. The mint program is normally discovered via
-      // getAccountInfo on the mint; until that port is wired we accept the
-      // explicit --mint-program override to gate the refusal path.
-      // TODO: wiring -- replace the override with ctx.ports.getAccountInfo
-      //   on `mint` and compare against TOKEN_2022_PROGRAM.
+      // Auto-detect the mint's owning program via getAccountInfo. The classic
+      // SPL Token program is the default; Token-2022 mints are refused for v1
+      // until extension support lands. An explicit --mint-program override
+      // short-circuits the lookup for offline simulate runs.
       const mintProgramOverride = args["mint-program"];
       if (mintProgramOverride === "token-2022") {
         await refuseToken2022(ctx, TOKEN_2022_PROGRAM);
       } else if (typeof mintProgramOverride === "string" && BASE58_RE.test(mintProgramOverride)) {
         await refuseToken2022(ctx, mintProgramOverride);
+      } else if (mintProgramOverride === undefined) {
+        try {
+          const accountInfoPort = resolvePort(ctx.providers, "getAccountInfo").port;
+          const mintAccount = await accountInfoPort.getAccountInfo(mint as Pubkey, { signal });
+          if (mintAccount !== null) {
+            await refuseToken2022(ctx, mintAccount.owner as unknown as string);
+          }
+        } catch (err) {
+          // If the provider doesn't expose getAccountInfo (e.g. offline tests),
+          // skip the auto-detection. The user can force the program via
+          // --mint-program=<token|token-2022> when they need to.
+          ctx.logger.debug({ err }, "token transfer mint-program autodetect skipped");
+        }
       }
 
       // TODO: wiring -- replace with ctx.ports.refreshBlockhash({ signal }).

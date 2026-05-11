@@ -1,6 +1,7 @@
 export type * from "./common.js";
 export type * from "./emit-event.js";
 export type * from "./execute-transaction.js";
+export type * from "./get-account-info.js";
 export type * from "./get-assets-by-owner.js";
 export type * from "./get-balance.js";
 export type * from "./get-portfolio.js";
@@ -21,6 +22,7 @@ export type * from "./subscribe-signatures.js";
 
 import type { EmitEventPort } from "./emit-event.js";
 import type { ExecuteTransactionPort } from "./execute-transaction.js";
+import type { GetAccountInfoPort } from "./get-account-info.js";
 import type { GetAssetsByOwnerPort } from "./get-assets-by-owner.js";
 import type { GetBalancePort } from "./get-balance.js";
 import type { GetPortfolioPort } from "./get-portfolio.js";
@@ -40,6 +42,7 @@ import type { SubmitBundlePort } from "./submit-bundle.js";
 import type { SubscribeSignaturesPort } from "./subscribe-signatures.js";
 
 export type PortName =
+  | "getAccountInfo"
   | "getBalance"
   | "getPortfolio"
   | "getTokenBalances"
@@ -61,6 +64,7 @@ export type PortName =
   | "safetyEvaluate";
 
 export interface PortMap {
+  readonly getAccountInfo: GetAccountInfoPort;
   readonly getBalance: GetBalancePort;
   readonly getPortfolio: GetPortfolioPort;
   readonly getTokenBalances: GetTokenBalancesPort;
