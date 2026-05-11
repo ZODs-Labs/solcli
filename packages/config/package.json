@@ -1,0 +1,29 @@
+{
+  "name": "@solcli/config",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@solcli/contracts": "workspace:*",
+    "@solcli/errors": "workspace:*",
+    "@solcli/platform": "workspace:*",
+    "@solcli/utils": "workspace:*",
+    "proper-lockfile": "catalog:",
+    "smol-toml": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}
