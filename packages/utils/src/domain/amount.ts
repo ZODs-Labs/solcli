@@ -1,15 +1,20 @@
-import type { Lamports, Result, Sol, TokenAmount } from "@solcli/contracts";
+import { lamports as kitLamports, type Lamports } from "@solana/kit";
+import type { Result, TokenAmount } from "@solcli/contracts";
 import { ValidationError } from "@solcli/errors";
 import { err, ok } from "./result.js";
 
-const LAMPORTS_PER_SOL = 1_000_000_000n;
-
+/**
+ * Coerce a non-negative integer to `Lamports`. Wraps Kit's `lamports()` brand
+ * producer with two solcli-specific guards: it accepts `number` (auto-promoted
+ * to `bigint`) and rejects negative values. Bigint inputs flow through Kit
+ * directly so the branding is the canonical Kit brand.
+ */
 export function lamports(n: bigint | number): Lamports {
   const v = typeof n === "number" ? toBigIntSafe(n) : n;
   if (v < 0n) {
     throw new ValidationError("Lamports cannot be negative", { details: { value: v.toString() } });
   }
-  return v as Lamports;
+  return kitLamports(v);
 }
 
 export function tryLamports(n: bigint | number): Result<Lamports, ValidationError> {
@@ -20,16 +25,6 @@ export function tryLamports(n: bigint | number): Result<Lamports, ValidationErro
   }
 }
 
-export function sol(n: number): Sol {
-  if (!Number.isFinite(n)) {
-    throw new ValidationError("Sol value must be finite", { details: { value: n } });
-  }
-  if (n < 0) {
-    throw new ValidationError("Sol cannot be negative", { details: { value: n } });
-  }
-  return n as Sol;
-}
-
 export function tokenAmount(n: bigint | number): TokenAmount {
   const v = typeof n === "number" ? toBigIntSafe(n) : n;
   if (v < 0n) {
@@ -38,16 +33,6 @@ export function tokenAmount(n: bigint | number): TokenAmount {
     });
   }
   return v as TokenAmount;
-}
-
-export function solToLamports(s: Sol): Lamports {
-  const value = (s as number) * Number(LAMPORTS_PER_SOL);
-  return lamports(Math.round(value));
-}
-
-export function lamportsToSol(l: Lamports): Sol {
-  const num = Number(l as bigint) / Number(LAMPORTS_PER_SOL);
-  return num as Sol;
 }
 
 export function addLamports(a: Lamports, b: Lamports): Lamports {

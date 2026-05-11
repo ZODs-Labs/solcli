@@ -9,6 +9,7 @@ coverage/
 apps/cli/src/generated/
 apps/cli/LICENSE
 apps/cli/.tsc-build/
+*.tsbuildinfo
 .tmp/
 *.tmp
 .claude/*

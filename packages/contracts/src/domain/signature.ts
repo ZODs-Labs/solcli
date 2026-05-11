@@ -1,7 +1,20 @@
-import type { Brand } from "./brand.js";
+import type { Blockhash, Signature, Slot, UnixTimestamp } from "@solana/kit";
 
-export type Signature = Brand<string, "Signature">;
-export type Blockhash = Brand<string, "Blockhash">;
-export type Slot = Brand<bigint, "Slot">;
-export type BlockHeight = Brand<bigint, "BlockHeight">;
-export type UnixSeconds = Brand<number, "UnixSeconds">;
+/**
+ * Re-export Kit's chain primitives so domain code does not maintain a
+ * parallel brand layer. Anywhere we used to brand a `string` as `Blockhash`
+ * or `Signature`, the same value already carries Kit's nominal type.
+ */
+export type { Blockhash, Signature, Slot, UnixTimestamp };
+
+/**
+ * Block height is a plain `bigint` in Kit's RPC types; we expose it under
+ * the historical alias for readability without re-branding.
+ */
+export type BlockHeight = bigint;
+
+/**
+ * Backwards-compatible alias for code that still reads `UnixSeconds`.
+ * Kit's canonical name is `UnixTimestamp`.
+ */
+export type UnixSeconds = UnixTimestamp;

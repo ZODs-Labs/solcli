@@ -15,6 +15,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@solana/kit": "catalog:",
     "@solcli/contracts": "workspace:*",
     "@solcli/errors": "workspace:*"
   },

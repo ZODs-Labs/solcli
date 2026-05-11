@@ -262,6 +262,10 @@ importers:
         version: 25.6.2
 
   packages/contracts:
+    dependencies:
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -523,6 +527,9 @@ importers:
 
   packages/utils:
     dependencies:
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       '@solcli/contracts':
         specifier: workspace:*
         version: link:../contracts
