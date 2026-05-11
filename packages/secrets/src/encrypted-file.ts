@@ -5,7 +5,7 @@ import {
   type DecipherGCM,
   randomBytes,
 } from "node:crypto";
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, open, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { argon2id } from "@noble/hashes/argon2.js";
 import type { Paths, SecretsBackend, SecretsStore } from "@solcli/contracts";
@@ -85,11 +85,22 @@ export class EncryptedFileBackend implements SecretsStore {
         throw new IoError(`Cannot read salt at ${this.saltPath}`, { cause: err as Error });
       }
     }
-    const salt = randomBytes(SALT_BYTES);
     await mkdir(path.dirname(this.saltPath), { recursive: true });
-    const tmp = `${this.saltPath}.tmp.${process.pid}`;
-    await writeFile(tmp, salt, { mode: 0o600 });
-    await rename(tmp, this.saltPath);
+    const salt = randomBytes(SALT_BYTES);
+    let handle: Awaited<ReturnType<typeof open>> | undefined;
+    try {
+      handle = await open(this.saltPath, "wx", 0o600);
+      await handle.writeFile(salt);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === "EEXIST") {
+        return this.ensureSalt();
+      }
+      throw new IoError(`Cannot create salt at ${this.saltPath}`, { cause: err as Error });
+    } finally {
+      await handle?.close().catch(() => {
+        // best effort
+      });
+    }
     if (process.platform !== "win32") {
       await chmod(this.saltPath, 0o600).catch(() => {
         // best effort
@@ -99,6 +110,11 @@ export class EncryptedFileBackend implements SecretsStore {
   }
 
   private async readAll(): Promise<Entry[]> {
+    await this.ensureSecretsFile();
+    return this.readAllUnlocked();
+  }
+
+  private async readAllUnlocked(): Promise<Entry[]> {
     let raw: string;
     try {
       raw = await readFile(this.secretsPath, "utf8");
@@ -108,7 +124,7 @@ export class EncryptedFileBackend implements SecretsStore {
     }
     const lines = raw.split("\n").filter((l) => l.trim() !== "");
     const out: Entry[] = [];
-    for (const line of lines) {
+    for (const [index, line] of lines.entries()) {
       try {
         const parsed: unknown = JSON.parse(line);
         if (
@@ -120,15 +136,19 @@ export class EncryptedFileBackend implements SecretsStore {
           typeof (parsed as Record<string, unknown>)["tag"] === "string"
         ) {
           out.push(parsed as Entry);
+          continue;
         }
-      } catch {
-        // skip malformed lines
+      } catch (err: unknown) {
+        throw new SecretError(`Malformed secrets file at line ${index + 1}`, {
+          cause: err as Error,
+        });
       }
+      throw new SecretError(`Malformed secrets file at line ${index + 1}`);
     }
     return out;
   }
 
-  private async writeAll(entries: Entry[]): Promise<void> {
+  private async ensureSecretsFile(): Promise<void> {
     await mkdir(path.dirname(this.secretsPath), { recursive: true });
     try {
       await readFile(this.secretsPath, "utf8");
@@ -137,22 +157,31 @@ export class EncryptedFileBackend implements SecretsStore {
         await writeFile(this.secretsPath, "", { mode: 0o600 });
       }
     }
+  }
+
+  private async withLockedEntries(update: (entries: Entry[]) => Entry[]): Promise<void> {
+    await this.ensureSecretsFile();
     const release = await lockfile.lock(this.secretsPath, {
       retries: { retries: 5, factor: 1.5, minTimeout: 50, maxTimeout: 500 },
       stale: 5_000,
     });
     try {
-      const body = entries.map((e) => JSON.stringify(e)).join("\n") + (entries.length ? "\n" : "");
-      const tmp = `${this.secretsPath}.tmp.${process.pid}`;
-      await writeFile(tmp, body, { mode: 0o600 });
-      await rename(tmp, this.secretsPath);
-      if (process.platform !== "win32") {
-        await chmod(this.secretsPath, 0o600).catch(() => {
-          // best effort
-        });
-      }
+      const entries = await this.readAllUnlocked();
+      await this.writeAllUnlocked(update(entries));
     } finally {
       await release();
+    }
+  }
+
+  private async writeAllUnlocked(entries: Entry[]): Promise<void> {
+    const body = entries.map((e) => JSON.stringify(e)).join("\n") + (entries.length ? "\n" : "");
+    const tmp = `${this.secretsPath}.tmp.${process.pid}`;
+    await writeFile(tmp, body, { mode: 0o600 });
+    await rename(tmp, this.secretsPath);
+    if (process.platform !== "win32") {
+      await chmod(this.secretsPath, 0o600).catch(() => {
+        // best effort
+      });
     }
   }
 
@@ -172,9 +201,7 @@ export class EncryptedFileBackend implements SecretsStore {
       ciphertext: enc.toString("base64"),
       tag: tag.toString("base64"),
     };
-    const all = (await this.readAll()).filter((e) => e.name !== name);
-    all.push(entry);
-    await this.writeAll(all);
+    await this.withLockedEntries((entries) => [...entries.filter((e) => e.name !== name), entry]);
   }
 
   async get(name: string): Promise<string | null> {
@@ -199,8 +226,7 @@ export class EncryptedFileBackend implements SecretsStore {
   }
 
   async delete(name: string): Promise<void> {
-    const all = (await this.readAll()).filter((e) => e.name !== name);
-    await this.writeAll(all);
+    await this.withLockedEntries((entries) => entries.filter((e) => e.name !== name));
   }
 
   async list(): Promise<string[]> {

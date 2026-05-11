@@ -48,6 +48,31 @@ describe("EncryptedFileBackend", () => {
     expect(names.sort()).toEqual(["a", "b"]);
   }, 30_000);
 
+  it("concurrent backend instances preserve independent writes", async () => {
+    const { dir } = await makeBackend("shared-passphrase");
+    const b1 = new EncryptedFileBackend({
+      paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
+      getMasterPassphrase: async () => "shared-passphrase",
+    });
+    const b2 = new EncryptedFileBackend({
+      paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
+      getMasterPassphrase: async () => "shared-passphrase",
+    });
+
+    await Promise.all([b1.set("a", "1"), b2.set("b", "2")]);
+
+    expect(await b1.get("a")).toBe("1");
+    expect(await b1.get("b")).toBe("2");
+  }, 60_000);
+
+  it("malformed secrets file fails closed", async () => {
+    const { dir, backend } = await makeBackend();
+    await backend.set("k", "value");
+    const file = join(dir, "secrets.enc.ndjson");
+    await writeFile(file, '{"name":"k"}\n', "utf8");
+    await expect(backend.list()).rejects.toBeInstanceOf(SecretError);
+  }, 30_000);
+
   it("tampered ciphertext throws SecretError", async () => {
     const { dir, backend } = await makeBackend();
     await backend.set("k", "value");
