@@ -20,6 +20,20 @@ export const ERROR_CODES = {
   EX_UNAVAILABLE: "SOLCLI_E_EX_UNAVAILABLE",
   INTERNAL: "SOLCLI_E_INTERNAL",
   IO: "SOLCLI_E_IO",
+  SIGNER_NOT_AVAILABLE: "SOLCLI_E_SIGNER_NOT_AVAILABLE",
+  SIGNER_REFUSED: "SOLCLI_E_SIGNER_REFUSED",
+  SIGNER_PERMISSIONS_INSECURE: "SOLCLI_E_SIGNER_PERMISSIONS_INSECURE",
+  SAFETY_BUDGET_EXCEEDED: "SOLCLI_E_SAFETY_BUDGET_EXCEEDED",
+  SAFETY_INTENT_REQUIRED: "SOLCLI_E_SAFETY_INTENT_REQUIRED",
+  SAFETY_PROGRAM_DENIED: "SOLCLI_E_SAFETY_PROGRAM_DENIED",
+  TX_BLOCKHASH_EXPIRED: "SOLCLI_E_TX_BLOCKHASH_EXPIRED",
+  TX_SIMULATE_FAILED: "SOLCLI_E_TX_SIMULATE_FAILED",
+  PLUGIN_INVALID_MANIFEST: "SOLCLI_E_PLUGIN_INVALID_MANIFEST",
+  PLUGIN_INTEGRITY_MISMATCH: "SOLCLI_E_PLUGIN_INTEGRITY_MISMATCH",
+  PLUGIN_UNVERIFIED: "SOLCLI_E_PLUGIN_UNVERIFIED",
+  IDL_NOT_FOUND: "SOLCLI_E_IDL_NOT_FOUND",
+  MCP_TRANSPORT_UNSUPPORTED: "SOLCLI_E_MCP_TRANSPORT_UNSUPPORTED",
+  EVENT_SINK_UNAVAILABLE: "SOLCLI_E_EVENT_SINK_UNAVAILABLE",
 } as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
@@ -142,6 +156,77 @@ export class InternalError extends SolcliError {
 export class IoError extends SolcliError {
   override readonly code = ERROR_CODES.IO;
   override readonly exitCode = 74;
+}
+
+// New foundation flow codes (ADR-0008 through ADR-0020).
+export class SignerNotAvailableError extends SolcliError {
+  override readonly code = ERROR_CODES.SIGNER_NOT_AVAILABLE;
+  override readonly exitCode = 69;
+}
+
+export class SignerRefusedError extends SolcliError {
+  override readonly code = ERROR_CODES.SIGNER_REFUSED;
+  override readonly exitCode = 77;
+}
+
+export class SignerPermissionsInsecureError extends SolcliError {
+  override readonly code = ERROR_CODES.SIGNER_PERMISSIONS_INSECURE;
+  override readonly exitCode = 77;
+}
+
+export class SafetyBudgetExceededError extends SolcliError {
+  override readonly code = ERROR_CODES.SAFETY_BUDGET_EXCEEDED;
+  override readonly exitCode = 65;
+}
+
+export class SafetyIntentRequiredError extends SolcliError {
+  override readonly code = ERROR_CODES.SAFETY_INTENT_REQUIRED;
+  override readonly exitCode = 78;
+}
+
+export class SafetyProgramDeniedError extends SolcliError {
+  override readonly code = ERROR_CODES.SAFETY_PROGRAM_DENIED;
+  override readonly exitCode = 65;
+}
+
+export class TxBlockhashExpiredV2Error extends SolcliError {
+  override readonly code = ERROR_CODES.TX_BLOCKHASH_EXPIRED;
+  override readonly exitCode = 75;
+}
+
+export class TxSimulateFailedError extends SolcliError {
+  override readonly code = ERROR_CODES.TX_SIMULATE_FAILED;
+  override readonly exitCode = 65;
+}
+
+export class PluginInvalidManifestError extends SolcliError {
+  override readonly code = ERROR_CODES.PLUGIN_INVALID_MANIFEST;
+  override readonly exitCode = 65;
+}
+
+export class PluginIntegrityMismatchError extends SolcliError {
+  override readonly code = ERROR_CODES.PLUGIN_INTEGRITY_MISMATCH;
+  override readonly exitCode = 77;
+}
+
+export class PluginUnverifiedError extends SolcliError {
+  override readonly code = ERROR_CODES.PLUGIN_UNVERIFIED;
+  override readonly exitCode = 78;
+}
+
+export class IdlNotFoundError extends SolcliError {
+  override readonly code = ERROR_CODES.IDL_NOT_FOUND;
+  override readonly exitCode = 65;
+}
+
+export class McpTransportUnsupportedError extends SolcliError {
+  override readonly code = ERROR_CODES.MCP_TRANSPORT_UNSUPPORTED;
+  override readonly exitCode = 64;
+}
+
+export class EventSinkUnavailableError extends SolcliError {
+  override readonly code = ERROR_CODES.EVENT_SINK_UNAVAILABLE;
+  override readonly exitCode = 65;
 }
 
 export function toSolcliError(err: unknown): SolcliError {

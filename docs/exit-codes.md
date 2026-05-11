@@ -29,3 +29,27 @@ In `--output json` mode, the JSON envelope carries `exitCode`. The process
 exit code matches.
 
 This table is also available at runtime via `solcli help exit-codes`.
+
+## Foundation flow additions (2026-05-11)
+
+The codes below extend the table above. They cover the foundation flow work
+introduced by ADR-0008 through ADR-0020 (signer, safety gate, transaction
+service, plugin runtime, IDL fetcher, MCP transport and event sink). Existing
+entries are unchanged; these are additive.
+
+| Exit | Code constant                          | Class                              | Meaning                                            |
+|------|----------------------------------------|------------------------------------|----------------------------------------------------|
+| 69   | `SOLCLI_E_SIGNER_NOT_AVAILABLE`        | `SignerNotAvailableError`          | Signer backend unreachable (Ledger, keychain)      |
+| 77   | `SOLCLI_E_SIGNER_REFUSED`              | `SignerRefusedError`               | User rejected on-device approval                   |
+| 77   | `SOLCLI_E_SIGNER_PERMISSIONS_INSECURE` | `SignerPermissionsInsecureError`   | Keypair file mode allows group or world access     |
+| 65   | `SOLCLI_E_SAFETY_BUDGET_EXCEEDED`      | `SafetyBudgetExceededError`        | Spend exceeds the configured safety budget         |
+| 78   | `SOLCLI_E_SAFETY_INTENT_REQUIRED`      | `SafetyIntentRequiredError`        | Write op needs explicit confirmation flag          |
+| 65   | `SOLCLI_E_SAFETY_PROGRAM_DENIED`       | `SafetyProgramDeniedError`         | Program id blocked by the safety allowlist         |
+| 75   | `SOLCLI_E_TX_BLOCKHASH_EXPIRED`        | `TxBlockhashExpiredV2Error`        | Blockhash expired inside the safety gate; retry    |
+| 65   | `SOLCLI_E_TX_SIMULATE_FAILED`          | `TxSimulateFailedError`            | Pre-flight simulation reported a failure           |
+| 65   | `SOLCLI_E_PLUGIN_INVALID_MANIFEST`     | `PluginInvalidManifestError`       | Plugin manifest is malformed or missing fields     |
+| 77   | `SOLCLI_E_PLUGIN_INTEGRITY_MISMATCH`   | `PluginIntegrityMismatchError`     | Plugin hash does not match pinned digest           |
+| 78   | `SOLCLI_E_PLUGIN_UNVERIFIED`           | `PluginUnverifiedError`            | Plugin not on the trust list; user must opt in     |
+| 65   | `SOLCLI_E_IDL_NOT_FOUND`               | `IdlNotFoundError`                 | Anchor IDL missing for the requested program       |
+| 64   | `SOLCLI_E_MCP_TRANSPORT_UNSUPPORTED`   | `McpTransportUnsupportedError`     | Requested MCP transport not supported by this CLI  |
+| 65   | `SOLCLI_E_EVENT_SINK_UNAVAILABLE`      | `EventSinkUnavailableError`        | Configured event sink could not be reached         |
