@@ -20,6 +20,59 @@ export async function loadTomlConfig(configPath: string): Promise<ConfigFile | n
     throw new IoError(`Cannot read config at ${configPath}`, { cause: err as Error });
   }
 
+  return parseConfigFile(raw, configPath);
+}
+
+export async function saveTomlConfig(configPath: string, file: ConfigFile): Promise<void> {
+  await updateTomlConfig(configPath, () => file);
+}
+
+export async function updateTomlConfig(
+  configPath: string,
+  update: (current: ConfigFile | null) => ConfigFile,
+): Promise<ConfigFile> {
+  const dir = path.dirname(configPath);
+  try {
+    await mkdir(dir, { recursive: true });
+  } catch (err: unknown) {
+    throw new IoError(`Cannot create config dir ${dir}`, { cause: err as Error });
+  }
+
+  try {
+    await readFile(configPath, "utf8");
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      await writeFile(configPath, "", { mode: 0o600 });
+    }
+  }
+
+  const release = await lockfile.lock(configPath, {
+    retries: { retries: 5, factor: 1.5, minTimeout: 50, maxTimeout: 500 },
+    stale: 5_000,
+  });
+
+  try {
+    const current = await loadTomlConfig(configPath);
+    const next = update(current);
+    const toml = serializeConfigFile(next);
+    const tmpPath = `${configPath}.tmp.${process.pid}`;
+    await writeFile(tmpPath, toml, { mode: 0o600 });
+    await rename(tmpPath, configPath);
+    if (process.platform !== "win32") {
+      await chmod(configPath, 0o600).catch(() => {
+        // best effort on POSIX
+      });
+    }
+    return next;
+  } catch (err: unknown) {
+    if (err instanceof ConfigError) throw err;
+    throw new IoError(`Failed to write config at ${configPath}`, { cause: err as Error });
+  } finally {
+    await release();
+  }
+}
+
+function parseConfigFile(raw: string, configPath: string): ConfigFile {
   let parsed: unknown;
   try {
     parsed = parse(raw);
@@ -47,44 +100,6 @@ export async function loadTomlConfig(configPath: string): Promise<ConfigFile | n
     default_profile: result.data.default_profile,
     profiles,
   };
-}
-
-export async function saveTomlConfig(configPath: string, file: ConfigFile): Promise<void> {
-  const dir = path.dirname(configPath);
-  try {
-    await mkdir(dir, { recursive: true });
-  } catch (err: unknown) {
-    throw new IoError(`Cannot create config dir ${dir}`, { cause: err as Error });
-  }
-
-  try {
-    await readFile(configPath, "utf8");
-  } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
-      await writeFile(configPath, "", { mode: 0o600 });
-    }
-  }
-
-  const release = await lockfile.lock(configPath, {
-    retries: { retries: 5, factor: 1.5, minTimeout: 50, maxTimeout: 500 },
-    stale: 5_000,
-  });
-
-  try {
-    const toml = serializeConfigFile(file);
-    const tmpPath = `${configPath}.tmp.${process.pid}`;
-    await writeFile(tmpPath, toml, { mode: 0o600 });
-    await rename(tmpPath, configPath);
-    if (process.platform !== "win32") {
-      await chmod(configPath, 0o600).catch(() => {
-        // best effort on POSIX
-      });
-    }
-  } catch (err: unknown) {
-    throw new IoError(`Failed to write config at ${configPath}`, { cause: err as Error });
-  } finally {
-    await release();
-  }
 }
 
 function serializeConfigFile(file: ConfigFile): string {

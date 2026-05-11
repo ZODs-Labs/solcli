@@ -2,7 +2,7 @@ import path from "node:path";
 import type { Config, ConfigManager, Paths } from "@solcli/contracts";
 import { ConfigError } from "@solcli/errors";
 import { DEFAULT_CONFIG } from "./defaults.js";
-import { type ConfigFile, loadTomlConfig, saveTomlConfig } from "./loader.js";
+import { type ConfigFile, loadTomlConfig, updateTomlConfig } from "./loader.js";
 import { deepMerge, envOverrides, resolveConfig } from "./precedence.js";
 
 export interface ConfigManagerOptions {
@@ -65,34 +65,39 @@ export class FileConfigManager implements ConfigManager {
   }
 
   async set(key: string, value: unknown): Promise<void> {
-    const file: ConfigFile = this.cachedFile ?? {
-      default_profile: this.currentProfile,
-      profiles: {},
-    };
-    const profile = file.profiles[this.currentProfile] ?? {};
-    writeDottedPath(profile as Record<string, unknown>, key, value);
-    file.profiles[this.currentProfile] = profile;
-    if (key === "default_profile") {
-      file.default_profile = String(value);
-    }
-    await saveTomlConfig(this.path, file);
-    this.cachedFile = file;
+    const next = await updateTomlConfig(this.path, (current) => {
+      const file: ConfigFile = current ?? {
+        default_profile: this.currentProfile,
+        profiles: {},
+      };
+      if (key === "default_profile") {
+        file.default_profile = String(value);
+        return file;
+      }
+      const profile = file.profiles[this.currentProfile] ?? {};
+      writeDottedPath(profile as Record<string, unknown>, key, value);
+      file.profiles[this.currentProfile] = profile;
+      return file;
+    });
+    this.cachedFile = next;
   }
 
   async switchProfile(name: string): Promise<void> {
     if (!name || typeof name !== "string") {
       throw new ConfigError(`Invalid profile name: ${String(name)}`);
     }
-    const file: ConfigFile = this.cachedFile ?? {
-      default_profile: this.currentProfile,
-      profiles: {},
-    };
-    file.default_profile = name;
-    if (!(name in file.profiles)) {
-      file.profiles[name] = {};
-    }
-    await saveTomlConfig(this.path, file);
-    this.cachedFile = file;
+    const next = await updateTomlConfig(this.path, (current) => {
+      const file: ConfigFile = current ?? {
+        default_profile: this.currentProfile,
+        profiles: {},
+      };
+      file.default_profile = name;
+      if (!(name in file.profiles)) {
+        file.profiles[name] = {};
+      }
+      return file;
+    });
+    this.cachedFile = next;
     this.currentProfile = name;
   }
 

@@ -39,6 +39,30 @@ describe("FileConfigManager", () => {
     expect(mgr2.read().network).toBe("devnet");
   });
 
+  it("concurrent managers preserve independent writes", async () => {
+    const { dir } = await makeMgr();
+    const mgr1 = await createConfigManager({
+      paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
+      env: {},
+    });
+    const mgr2 = await createConfigManager({
+      paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
+      env: {},
+    });
+
+    await Promise.all([
+      mgr1.set("network", "devnet"),
+      mgr2.set("rpc.primary", "https://a.example"),
+    ]);
+
+    const merged = await createConfigManager({
+      paths: { data: dir, config: dir, cache: dir, log: dir, temp: dir },
+      env: {},
+    });
+    expect(merged.read().network).toBe("devnet");
+    expect(merged.read().rpc.primary).toBe("https://a.example");
+  });
+
   it("supports nested keys via dotted path", async () => {
     const { mgr } = await makeMgr();
     await mgr.set("rpc.primary", "https://example.com");

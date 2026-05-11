@@ -1,5 +1,5 @@
 export { DEFAULT_CONFIG, ENV_VAR_NAMES } from "./defaults.js";
-export { type ConfigFile, loadTomlConfig, saveTomlConfig } from "./loader.js";
+export { type ConfigFile, loadTomlConfig, saveTomlConfig, updateTomlConfig } from "./loader.js";
 export {
   type ConfigManagerOptions,
   createConfigManager,
