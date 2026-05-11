@@ -77,7 +77,7 @@ export class EnvSignerAdapter implements SignerAdapter {
     if (raw !== undefined && raw.length > 0) {
       try {
         const seed = extractSeed(decodeKey(raw));
-        const pubBytes = ed25519PubkeyFromSeed(seed);
+        const pubBytes = await ed25519PubkeyFromSeed(seed);
         seed.fill(0);
         info.pubkey = base58Encode(pubBytes) as unknown as Pubkey;
       } catch {

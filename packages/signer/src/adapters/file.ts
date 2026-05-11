@@ -202,6 +202,6 @@ function errMessage(e: unknown): string {
  * Compute the cached pubkey for a freshly-built keystore. Exported for
  * fixture builders.
  */
-export function pubkeyFromSeedBytes(seed: Uint8Array): string {
-  return base58Encode(ed25519PubkeyFromSeed(extractSeed(seed)));
+export async function pubkeyFromSeedBytes(seed: Uint8Array): Promise<string> {
+  return base58Encode(await ed25519PubkeyFromSeed(extractSeed(seed)));
 }

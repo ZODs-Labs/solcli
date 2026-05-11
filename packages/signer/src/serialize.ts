@@ -1,54 +1,61 @@
+import {
+  AccountRole,
+  type Address,
+  address,
+  appendTransactionMessageInstructions,
+  type Blockhash,
+  compileTransaction,
+  createTransactionMessage,
+  type Instruction,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 import type { TransactionPlan } from "@solcli/contracts";
 
 /**
- * Produce a deterministic byte representation of a `TransactionPlan` for
- * signing. The encoding is signer-internal and stable across calls; the
- * real wire encoding (legacy or v0) lives in `@solcli/tx` and is wired
- * by the wiring session.
+ * Compile a `TransactionPlan` to canonical Solana v0 message wire bytes.
  *
- * We sign over a canonical UTF-8 JSON of the plan's load-bearing fields.
- * Stable ordering of keys and explicit handling of `bigint` and
- * `Uint8Array` keeps the bytes reproducible.
+ * Returns the exact bytes the signer must sign over: the v0 message format the
+ * runtime verifies signatures against. Lookup-table resolution is not done here
+ * because the wiring layer is responsible for pre-resolving any ALTs before
+ * handing a plan to the signer; this function rejects plans that declare ALTs.
  */
 export function serializeMessage(plan: TransactionPlan): Uint8Array {
-  const canonical = {
-    version: plan.version,
-    payer: plan.payer as unknown as string,
-    recentBlockhash: plan.recentBlockhash as unknown as string,
-    instructions: plan.instructions.map((ix) => ({
-      programId: ix.programId as unknown as string,
-      keys: ix.keys.map((k) => ({
-        pubkey: k.pubkey as unknown as string,
-        isSigner: k.isSigner,
-        isWritable: k.isWritable,
-      })),
-      data: bytesToHex(ix.data),
-    })),
-    addressLookupTables: plan.addressLookupTables?.map((p) => p as unknown as string),
-    priorityFeeMicroLamportsPerCu:
-      plan.priorityFeeMicroLamportsPerCu !== undefined
-        ? plan.priorityFeeMicroLamportsPerCu.toString()
-        : undefined,
-    computeUnitLimit: plan.computeUnitLimit,
-    expectedSigners: plan.expectedSigners.map((p) => p as unknown as string),
-    tags: plan.tags,
-  };
-  return new TextEncoder().encode(JSON.stringify(canonical, sortReplacer));
-}
-
-function bytesToHex(b: Uint8Array): string {
-  return Buffer.from(b).toString("hex");
-}
-
-function sortReplacer(_key: string, value: unknown): unknown {
-  if (value === undefined) return undefined;
-  if (value === null) return null;
-  if (typeof value !== "object") return value;
-  if (Array.isArray(value)) return value;
-  const obj = value as Record<string, unknown>;
-  const out: Record<string, unknown> = {};
-  for (const k of Object.keys(obj).sort()) {
-    out[k] = obj[k];
+  if (plan.addressLookupTables !== undefined && plan.addressLookupTables.length > 0) {
+    throw new Error("serializeMessage: address lookup tables must be resolved before signing");
   }
-  return out;
+
+  const instructions: Instruction[] = plan.instructions.map((ix) => ({
+    programAddress: address(ix.programId as unknown as string),
+    accounts: ix.keys.map((k) => ({
+      address: address(k.pubkey as unknown as string),
+      role: roleFromFlags(k.isSigner, k.isWritable),
+    })),
+    data: ix.data,
+  }));
+
+  const empty = createTransactionMessage({ version: 0 });
+  const withPayer = setTransactionMessageFeePayer(address(plan.payer as unknown as string), empty);
+  const withLifetime = setTransactionMessageLifetimeUsingBlockhash(
+    {
+      blockhash: plan.recentBlockhash as unknown as Blockhash,
+      // Not encoded into the message bytes; only used as a client-side hint.
+      lastValidBlockHeight: 0n,
+    },
+    withPayer,
+  );
+  const message = appendTransactionMessageInstructions(instructions, withLifetime);
+
+  const compiled = compileTransaction(message);
+  return new Uint8Array(compiled.messageBytes);
 }
+
+function roleFromFlags(isSigner: boolean, isWritable: boolean): AccountRole {
+  if (isSigner && isWritable) return AccountRole.WRITABLE_SIGNER;
+  if (isSigner) return AccountRole.READONLY_SIGNER;
+  if (isWritable) return AccountRole.WRITABLE;
+  return AccountRole.READONLY;
+}
+
+// Type re-export so callers that only know us can name the address brand.
+export type { Address };

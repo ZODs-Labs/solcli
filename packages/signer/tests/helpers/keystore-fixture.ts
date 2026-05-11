@@ -29,7 +29,7 @@ export async function writeKeystoreFile(
   const expanded = expandTo64(seed);
   const ctrl = new AbortController();
   const encrypted = await testSecrets.encrypt(expanded, opts.password, ctrl.signal);
-  const pubkey = pubkeyFromSeedBytes(seed);
+  const pubkey = await pubkeyFromSeedBytes(seed);
   const payload = {
     version: 1,
     kdf: "argon2id",

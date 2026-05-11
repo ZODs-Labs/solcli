@@ -69,7 +69,7 @@ export class KeychainSignerAdapter implements SignerAdapter {
     const stored = await deps.keychain.get(name, opts.signal);
     if (stored !== null && (stored.length === 32 || stored.length === 64)) {
       const seed = extractSeed(stored);
-      const pubBytes = ed25519PubkeyFromSeed(seed);
+      const pubBytes = await ed25519PubkeyFromSeed(seed);
       seed.fill(0);
       stored.fill(0);
       info.pubkey = base58Encode(pubBytes) as unknown as Pubkey;

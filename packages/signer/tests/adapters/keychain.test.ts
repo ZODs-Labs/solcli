@@ -64,10 +64,10 @@ function makeIntent(): IntentEnvelope {
   };
 }
 
-function makeSeed(): { seed: Uint8Array; expanded: Uint8Array; pubkey: string } {
+async function makeSeed(): Promise<{ seed: Uint8Array; expanded: Uint8Array; pubkey: string }> {
   const seed = new Uint8Array(32);
   for (let i = 0; i < 32; i++) seed[i] = (i * 5 + 9) & 0xff;
-  const pub = ed25519PubkeyFromSeed(seed);
+  const pub = await ed25519PubkeyFromSeed(seed);
   const expanded = new Uint8Array(64);
   expanded.set(seed, 0);
   expanded.set(pub, 32);
@@ -79,7 +79,7 @@ describe("KeychainSignerAdapter", () => {
     const dir = await mkdtemp(path.join(tmpdir(), "solcli-kc-"));
     const keychain = new MemoryKeychainBackend();
     const built = await buildTestDeps({ keychain, auditDir: path.join(dir, "audit") });
-    const { expanded, pubkey } = makeSeed();
+    const { expanded, pubkey } = await makeSeed();
     const ctrl = new AbortController();
     await keychain.set("solcli:signer:primary", expanded, ctrl.signal);
     const stored = await keychain.get("solcli:signer:primary", ctrl.signal);
@@ -123,7 +123,7 @@ describe("KeychainSignerAdapter", () => {
   it("uses custom keychainService when provided", async () => {
     const keychain = new MemoryKeychainBackend();
     const built = await buildTestDeps({ keychain });
-    const { expanded, pubkey } = makeSeed();
+    const { expanded, pubkey } = await makeSeed();
     const ctrl = new AbortController();
     await keychain.set("custom:key", expanded, ctrl.signal);
 
@@ -178,7 +178,7 @@ describe("KeychainSignerAdapter", () => {
 
   it("read returns pubkey when the keychain holds a valid key", async () => {
     const keychain = new MemoryKeychainBackend();
-    const { expanded, pubkey } = makeSeed();
+    const { expanded, pubkey } = await makeSeed();
     const built = await buildTestDeps({ keychain });
     const ctrl = new AbortController();
     await keychain.set("solcli:signer:primary", expanded, ctrl.signal);

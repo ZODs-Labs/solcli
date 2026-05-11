@@ -62,19 +62,19 @@ function makeIntent(): IntentEnvelope {
   };
 }
 
-function makeKeyB58(): { keyB58: string; pubkey: string } {
+async function makeKeyB58(): Promise<{ keyB58: string; pubkey: string }> {
   const seed = new Uint8Array(32);
   for (let i = 0; i < 32; i++) seed[i] = (i * 3 + 1) & 0xff;
   const expanded = new Uint8Array(64);
   expanded.set(seed, 0);
-  const pub = ed25519PubkeyFromSeed(seed);
+  const pub = await ed25519PubkeyFromSeed(seed);
   expanded.set(pub, 32);
   return { keyB58: base58Encode(expanded), pubkey: base58Encode(pub) };
 }
 
 describe("EnvSignerAdapter", () => {
   it("refuses when allowEnv is false even with env var set", async () => {
-    const { keyB58 } = makeKeyB58();
+    const { keyB58 } = await makeKeyB58();
     const built = await buildTestDeps({
       env: { SOLCLI_SIGNER_HOT_KEY: keyB58 },
       allowEnv: false,
@@ -112,7 +112,7 @@ describe("EnvSignerAdapter", () => {
   });
 
   it("happy path: signs and warns on every use", async () => {
-    const { keyB58, pubkey } = makeKeyB58();
+    const { keyB58, pubkey } = await makeKeyB58();
     const built = await buildTestDeps({
       env: { SOLCLI_SIGNER_HOT_KEY: keyB58 },
       allowEnv: true,
@@ -140,7 +140,7 @@ describe("EnvSignerAdapter", () => {
   });
 
   it("read returns the derived pubkey when the env var is present", async () => {
-    const { keyB58, pubkey } = makeKeyB58();
+    const { keyB58, pubkey } = await makeKeyB58();
     const built = await buildTestDeps({
       env: { SOLCLI_SIGNER_HOT_KEY: keyB58 },
       allowEnv: true,

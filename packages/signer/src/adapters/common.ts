@@ -63,8 +63,8 @@ export async function signWithKeyBytes(args: SignWithKeyBytesArgs): Promise<Sign
   try {
     opts.signal.throwIfAborted();
     seed = extractSeed(keyBytes);
-    pubkeyBytes = ed25519PubkeyFromSeed(seed);
-    signature = ed25519Sign(seed, message);
+    pubkeyBytes = await ed25519PubkeyFromSeed(seed);
+    signature = await ed25519Sign(seed, message);
   } finally {
     // Zero the original buffer regardless of success so secret bytes do
     // not linger when the adapter throws.

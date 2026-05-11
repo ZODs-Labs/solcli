@@ -19,6 +19,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@solana/kit": "catalog:",
     "@solcli/contracts": "workspace:*",
     "@solcli/errors": "workspace:*",
     "@solcli/platform": "workspace:*",
