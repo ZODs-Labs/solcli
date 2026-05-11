@@ -6,8 +6,8 @@ describe("evaluateAllowedPrograms", () => {
   it("passes when every program is in the allowlist", () => {
     const tp = plan({
       instructions: [
-        { programId: pk("prog1"), keys: [], data: new Uint8Array() },
-        { programId: pk("prog2"), keys: [], data: new Uint8Array() },
+        { programAddress: pk("prog1"), accounts: [], data: new Uint8Array() },
+        { programAddress: pk("prog2"), accounts: [], data: new Uint8Array() },
       ],
     });
     const v = evaluateAllowedPrograms(tp, new Set(["prog1", "prog2"]));
@@ -17,8 +17,8 @@ describe("evaluateAllowedPrograms", () => {
   it("rejects when any program is not in the allowlist", () => {
     const tp = plan({
       instructions: [
-        { programId: pk("prog1"), keys: [], data: new Uint8Array() },
-        { programId: pk("rogue"), keys: [], data: new Uint8Array() },
+        { programAddress: pk("prog1"), accounts: [], data: new Uint8Array() },
+        { programAddress: pk("rogue"), accounts: [], data: new Uint8Array() },
       ],
     });
     const v = evaluateAllowedPrograms(tp, new Set(["prog1"]));

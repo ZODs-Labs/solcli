@@ -1,12 +1,5 @@
-import type {
-  Blockhash,
-  FeePolicy,
-  InstructionPlan,
-  Lamports,
-  Pubkey,
-  SignerAlias,
-  TransactionPlan,
-} from "@solcli/contracts";
+import type { Blockhash, FeePolicy, Lamports, Pubkey, SignerAlias } from "@solcli/contracts";
+import { buildTransferMessage } from "@solcli/protocol-native";
 import { defineCommand } from "citty";
 import { type Context, withContext } from "../../context.js";
 import { resolvePort } from "../../operations/resolve-port.js";
@@ -67,53 +60,6 @@ function parseVia(ctx: Context, value: string): "rpc" | "jito" {
     });
   }
   return value as "rpc" | "jito";
-}
-
-/**
- * Build a SystemProgram::Transfer plan inline.
- *
- * Wire format (System Program instruction 2):
- *   [0..4]  u32 LE tag = 2
- *   [4..12] u64 LE lamports
- *
- * TODO: migrate to `buildTransferPlan` from `@solcli/protocol-native` once
- * that package is added to the cli app's dependencies and its `src/index.ts`
- * is published by the protocol-native session.
- */
-function buildTransferPlan(args: {
-  from: Pubkey;
-  to: Pubkey;
-  lamports: Lamports;
-  recentBlockhash: Blockhash;
-}): TransactionPlan {
-  const data = new Uint8Array(12);
-  const view = new DataView(data.buffer);
-  view.setUint32(0, 2, true);
-  view.setBigUint64(4, args.lamports as unknown as bigint, true);
-
-  const instruction: InstructionPlan = {
-    programId: args.from === args.to ? args.from : (SYSTEM_PROGRAM as Pubkey),
-    keys: [
-      { pubkey: args.from, isSigner: true, isWritable: true },
-      { pubkey: args.to, isSigner: false, isWritable: true },
-    ],
-    data,
-  };
-  // The programId must always be the System Program; the ternary above is
-  // a no-op intended only to thread the branded Pubkey through the type
-  // system. Force the literal here.
-  const fixedInstruction: InstructionPlan = {
-    ...instruction,
-    programId: SYSTEM_PROGRAM as Pubkey,
-  };
-
-  return {
-    version: 0,
-    payer: args.from,
-    recentBlockhash: args.recentBlockhash,
-    instructions: [fixedInstruction],
-    expectedSigners: [args.from],
-  };
 }
 
 export default defineCommand({
@@ -233,7 +179,7 @@ export default defineCommand({
         // optional path; leave the placeholder in place
       }
 
-      const plan = buildTransferPlan({ from, to, lamports, recentBlockhash });
+      const plan = buildTransferMessage({ from, to, lamports, recentBlockhash });
 
       const feePolicy = parseFeePolicy(ctx, String(args["priority-fee"]));
       const via = parseVia(ctx, String(args.via));
@@ -260,8 +206,8 @@ export default defineCommand({
           data: {
             plan: {
               instructions: plan.instructions.length,
-              payer: plan.payer,
-              recentBlockhash: plan.recentBlockhash,
+              payer: plan.feePayer.address,
+              recentBlockhash: plan.lifetimeConstraint.blockhash,
             },
             transfer: {
               from,

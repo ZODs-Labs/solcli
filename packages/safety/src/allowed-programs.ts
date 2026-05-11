@@ -1,15 +1,15 @@
-import type { SafetyVerdict, TransactionPlan } from "@solcli/contracts";
+import type { SafetyVerdict, SignableTransactionMessage } from "@solcli/contracts";
 
 export function evaluateAllowedPrograms(
-  plan: TransactionPlan,
+  message: SignableTransactionMessage,
   allowed: ReadonlySet<string>,
 ): SafetyVerdict {
-  for (const ix of plan.instructions) {
-    if (!allowed.has(ix.programId)) {
+  for (const ix of message.instructions) {
+    if (!allowed.has(ix.programAddress)) {
       return {
         ok: false,
         code: "SOLCLI_E_SAFETY_PROGRAM_DENIED",
-        reason: `program not in allowlist: ${ix.programId}`,
+        reason: `program not in allowlist: ${ix.programAddress}`,
       };
     }
   }

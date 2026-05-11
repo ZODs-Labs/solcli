@@ -17,6 +17,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@solana-program/compute-budget": "catalog:",
+    "@solana-program/stake": "catalog:",
+    "@solana-program/system": "catalog:",
+    "@solana/kit": "catalog:",
     "@solcli/contracts": "workspace:*",
     "@solcli/solana-stubs": "workspace:*"
   },

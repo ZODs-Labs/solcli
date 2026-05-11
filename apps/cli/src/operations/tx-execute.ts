@@ -4,9 +4,9 @@ import type {
   IntentEnvelope,
   Lamports,
   Result,
+  SignableTransactionMessage,
   Signature,
   SimulationResult,
-  TransactionPlan,
 } from "@solcli/contracts";
 import {
   InternalError,
@@ -26,7 +26,7 @@ import { resolvePort } from "./resolve-port.js";
  * later; until then this operation composes the underlying ports directly.
  */
 export interface TxExecuteArgs {
-  readonly plan: TransactionPlan;
+  readonly plan: SignableTransactionMessage;
   readonly alias: string;
   readonly feePolicy: FeePolicy;
   readonly execute: boolean;

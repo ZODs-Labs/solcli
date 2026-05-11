@@ -1,8 +1,8 @@
 import type {
   Pubkey,
+  SignableTransactionMessage,
   Signature,
   SignedTransaction,
-  TransactionPlan,
   TransactionSignature,
 } from "@solcli/contracts";
 import { appendAudit } from "../audit.js";
@@ -19,7 +19,7 @@ import { serializeMessage } from "../serialize.js";
 export interface SignWithKeyBytesArgs {
   readonly alias: SignerAlias;
   readonly adapter: SignerAdapterKind;
-  readonly plan: TransactionPlan;
+  readonly message: SignableTransactionMessage;
   readonly opts: SignTransactionOptions;
   readonly deps: SignerInitDeps;
   readonly keyBytes: Uint8Array;
@@ -39,7 +39,7 @@ export interface SignWithKeyBytesArgs {
  * buffer has been overwritten with zeros and must not be used.
  */
 export async function signWithKeyBytes(args: SignWithKeyBytesArgs): Promise<SignedTransaction> {
-  const { alias, adapter, plan, opts, deps, keyBytes } = args;
+  const { alias, adapter, message, opts, deps, keyBytes } = args;
   opts.signal.throwIfAborted();
 
   const time = new Date(deps.clock()).toISOString();
@@ -55,7 +55,7 @@ export async function signWithKeyBytes(args: SignWithKeyBytesArgs): Promise<Sign
     });
   }
 
-  const message = serializeMessage(plan);
+  const messageBytes = serializeMessage(message);
 
   let seed: Uint8Array | undefined;
   let signature: Uint8Array;
@@ -64,7 +64,7 @@ export async function signWithKeyBytes(args: SignWithKeyBytesArgs): Promise<Sign
     opts.signal.throwIfAborted();
     seed = extractSeed(keyBytes);
     pubkeyBytes = await ed25519PubkeyFromSeed(seed);
-    signature = await ed25519Sign(seed, message);
+    signature = await ed25519Sign(seed, messageBytes);
   } finally {
     // Zero the original buffer regardless of success so secret bytes do
     // not linger when the adapter throws.
@@ -80,8 +80,8 @@ export async function signWithKeyBytes(args: SignWithKeyBytesArgs): Promise<Sign
   const txSig: TransactionSignature = { signer: pubkeyB58, signature: signatureB58 };
   const signed: SignedTransaction = {
     version: 0,
-    payer: plan.payer,
-    serializedMessage: message,
+    payer: message.feePayer.address as Pubkey,
+    serializedMessage: messageBytes,
     signatures: [txSig],
   };
 

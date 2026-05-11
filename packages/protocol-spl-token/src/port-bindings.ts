@@ -1,10 +1,10 @@
 import { deriveAtaAddress } from "./ata.js";
 import { getTokenBalance } from "./balance.js";
-import { buildTokenTransferPlan } from "./transfer.js";
+import { buildTokenTransferMessage } from "./transfer.js";
 
 export interface SplTokenProtocolPorts {
   readonly getTokenBalance: typeof getTokenBalance;
-  readonly buildTokenTransferPlan: typeof buildTokenTransferPlan;
+  readonly buildTokenTransferMessage: typeof buildTokenTransferMessage;
   readonly deriveAtaAddress: typeof deriveAtaAddress;
 }
 
@@ -18,7 +18,7 @@ export const SPL_TOKEN_PROTOCOL_BINDINGS: SplTokenProtocolBindings = {
   name: "@solcli/protocol-spl-token",
   ports: {
     getTokenBalance,
-    buildTokenTransferPlan,
+    buildTokenTransferMessage,
     deriveAtaAddress,
   },
   commands: ["token balance", "token transfer"],

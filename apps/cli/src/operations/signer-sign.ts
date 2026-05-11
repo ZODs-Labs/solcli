@@ -1,16 +1,16 @@
 import type {
   IntentEnvelope,
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAlias,
   SignTransactionPort,
-  TransactionPlan,
 } from "@solcli/contracts";
 import type { Context } from "../context.js";
 import { resolvePort } from "./resolve-port.js";
 
 export interface SignerSignArgs {
   readonly alias: SignerAlias;
-  readonly plan: TransactionPlan;
+  readonly plan: SignableTransactionMessage;
   readonly intent: IntentEnvelope;
   readonly signal: AbortSignal;
 }

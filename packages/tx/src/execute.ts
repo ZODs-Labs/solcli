@@ -4,10 +4,10 @@ import type {
   IntentEnvelope,
   Lamports,
   Result,
+  SignableTransactionMessage,
   Signature,
   SignedTransaction,
   SignerAlias,
-  TransactionPlan,
 } from "@solcli/contracts";
 import {
   RpcRateLimitError,
@@ -35,7 +35,7 @@ const MAX_SEND_ATTEMPTS = 3;
 
 export async function runExecute(
   deps: TransactionServiceDeps,
-  initialPlan: TransactionPlan,
+  initialPlan: SignableTransactionMessage,
   opts: ExecuteOptionsExtended,
   alias: SignerAlias,
   feePolicy: FeePolicy,
@@ -60,16 +60,16 @@ interface EventCtx {
 
 async function runExecuteOnce(
   deps: TransactionServiceDeps,
-  initialPlan: TransactionPlan,
+  initialPlan: SignableTransactionMessage,
   opts: ExecuteOptionsExtended,
   alias: SignerAlias,
   feePolicy: FeePolicy,
   ctx: EventCtx,
 ): Promise<Result<Signature, unknown>> {
-  let plan: TransactionPlan = initialPlan;
+  let plan: SignableTransactionMessage = initialPlan;
 
   opts.signal.throwIfAborted();
-  emitRecord(ctx, "tx.build", { tags: plan.tags ?? {} });
+  emitRecord(ctx, "tx.build", {});
 
   const simulateFirst = (deps.evaluateSimulateFirst ?? defaultSimulateFirstGate)({
     execute: opts.execute ?? false,
@@ -126,7 +126,7 @@ async function runExecuteOnce(
 
   // Intent envelope.
   const intent: IntentEnvelope = buildIntent(plan, simulation, {
-    summary: plan.tags?.["summary"] ?? "write-intent",
+    summary: "write-intent",
     idempotencyKey: opts.idempotencyKey,
     costBudgetLamports: opts.costBudgetLamports as Lamports,
     signerAlias: alias as unknown as string,
@@ -189,7 +189,13 @@ async function runExecuteOnce(
       }
       const refresh = await deps.refreshBlockhash({ signal: opts.signal });
       deps.logger.debug({ attempt, blockhash: refresh.blockhash }, "tx blockhash refreshed");
-      plan = { ...plan, recentBlockhash: refresh.blockhash as Blockhash };
+      plan = {
+        ...plan,
+        lifetimeConstraint: {
+          blockhash: refresh.blockhash as Blockhash,
+          lastValidBlockHeight: plan.lifetimeConstraint.lastValidBlockHeight,
+        },
+      };
       signed = await runSign(alias, plan, {
         sign: deps.sign,
         signal: opts.signal,

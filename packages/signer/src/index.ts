@@ -21,6 +21,7 @@ export type {
   AddSignerOptions,
   KeychainBackend,
   SecretsCrypto,
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAdapter,
   SignerAdapterDeps,
@@ -34,7 +35,6 @@ export type {
   SignerPlatform,
   SignTransactionOptions,
   SignTransactionPort,
-  TransactionPlan,
 } from "./port.js";
 export type {
   SignerAdapterFactory,

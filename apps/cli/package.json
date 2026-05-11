@@ -47,6 +47,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
     "@napi-rs/keyring": "catalog:",
+    "@solana/kit": "catalog:",
     "citty": "catalog:",
     "pino": "catalog:",
     "pino-roll": "catalog:",

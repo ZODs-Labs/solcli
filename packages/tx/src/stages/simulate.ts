@@ -1,4 +1,8 @@
-import type { SimulateTransactionPort, SimulationResult, TransactionPlan } from "@solcli/contracts";
+import type {
+  SignableTransactionMessage,
+  SimulateTransactionPort,
+  SimulationResult,
+} from "@solcli/contracts";
 
 export interface SimulateStageContext {
   readonly simulate: SimulateTransactionPort;
@@ -6,7 +10,7 @@ export interface SimulateStageContext {
 }
 
 export async function runSimulate(
-  plan: TransactionPlan,
+  plan: SignableTransactionMessage,
   ctx: SimulateStageContext,
 ): Promise<SimulationResult> {
   ctx.signal.throwIfAborted();

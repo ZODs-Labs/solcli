@@ -1,4 +1,4 @@
-import type { TransactionPlan } from "../domain/tx-plan.js";
+import type { SignableTransactionMessage } from "../domain/tx-plan.js";
 
 export interface GetPriorityFeePolicyOptions {
   readonly signal: AbortSignal;
@@ -6,5 +6,8 @@ export interface GetPriorityFeePolicyOptions {
 }
 
 export interface GetPriorityFeePolicyPort {
-  recommend(plan: TransactionPlan, opts: GetPriorityFeePolicyOptions): Promise<bigint>;
+  recommend(
+    message: SignableTransactionMessage,
+    opts: GetPriorityFeePolicyOptions,
+  ): Promise<bigint>;
 }

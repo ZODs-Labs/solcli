@@ -1,5 +1,5 @@
 import type { Pubkey } from "../domain/pubkey.js";
-import type { TransactionPlan } from "../domain/tx-plan.js";
+import type { SignableTransactionMessage } from "../domain/tx-plan.js";
 
 export interface ProposeMultisigTxOptions {
   readonly signal: AbortSignal;
@@ -13,5 +13,8 @@ export interface ProposeMultisigTxResult {
 }
 
 export interface ProposeMultisigTxPort {
-  propose(plan: TransactionPlan, opts: ProposeMultisigTxOptions): Promise<ProposeMultisigTxResult>;
+  propose(
+    message: SignableTransactionMessage,
+    opts: ProposeMultisigTxOptions,
+  ): Promise<ProposeMultisigTxResult>;
 }

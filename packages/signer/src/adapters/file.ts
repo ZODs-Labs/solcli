@@ -1,12 +1,12 @@
 import { readFile, stat } from "node:fs/promises";
 import type {
   Pubkey,
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAlias,
   SignerInfo,
   SignerInfoOptions,
   SignTransactionOptions,
-  TransactionPlan,
 } from "@solcli/contracts";
 import {
   InternalError,
@@ -51,7 +51,7 @@ export class FileSignerAdapter implements SignerAdapter {
 
   async sign(
     alias: SignerAlias,
-    plan: TransactionPlan,
+    message: SignableTransactionMessage,
     opts: SignTransactionOptions,
   ): Promise<SignedTransaction> {
     const deps = this.requireDeps();
@@ -70,7 +70,7 @@ export class FileSignerAdapter implements SignerAdapter {
     return signWithKeyBytes({
       alias,
       adapter: KIND,
-      plan,
+      message,
       opts,
       deps,
       keyBytes: plain,

@@ -1,9 +1,9 @@
 import type {
   IntentEnvelope,
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAlias,
   SignTransactionPort,
-  TransactionPlan,
 } from "@solcli/contracts";
 
 export interface SignStageContext {
@@ -14,7 +14,7 @@ export interface SignStageContext {
 
 export async function runSign(
   alias: SignerAlias,
-  plan: TransactionPlan,
+  plan: SignableTransactionMessage,
   ctx: SignStageContext,
 ): Promise<SignedTransaction> {
   ctx.signal.throwIfAborted();

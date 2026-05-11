@@ -21,6 +21,21 @@ catalogs:
     '@noble/hashes':
       specifier: ^2.2.0
       version: 2.2.0
+    '@solana-program/compute-budget':
+      specifier: ^0.15.0
+      version: 0.15.0
+    '@solana-program/stake':
+      specifier: ^0.6.1
+      version: 0.6.1
+    '@solana-program/system':
+      specifier: ^0.12.0
+      version: 0.12.0
+    '@solana-program/token':
+      specifier: ^0.13.0
+      version: 0.13.0
+    '@solana-program/token-2022':
+      specifier: ^0.9.0
+      version: 0.9.0
     '@solana/kit':
       specifier: ^6.9.0
       version: 6.9.0
@@ -137,6 +152,9 @@ importers:
       '@napi-rs/keyring':
         specifier: 'catalog:'
         version: 1.3.0
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       citty:
         specifier: 'catalog:'
         version: 0.2.2
@@ -381,6 +399,18 @@ importers:
 
   packages/protocol-native:
     dependencies:
+      '@solana-program/compute-budget':
+        specifier: 'catalog:'
+        version: 0.15.0(@solana/kit@6.9.0(typescript@6.0.3))
+      '@solana-program/stake':
+        specifier: 'catalog:'
+        version: 0.6.1(@solana/kit@6.9.0(typescript@6.0.3))
+      '@solana-program/system':
+        specifier: 'catalog:'
+        version: 0.12.0(@solana/kit@6.9.0(typescript@6.0.3))
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       '@solcli/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -394,6 +424,15 @@ importers:
 
   packages/protocol-spl-token:
     dependencies:
+      '@solana-program/token':
+        specifier: 'catalog:'
+        version: 0.13.0(@solana/kit@6.9.0(typescript@6.0.3))
+      '@solana-program/token-2022':
+        specifier: 'catalog:'
+        version: 0.9.0(@solana/kit@6.9.0(typescript@6.0.3))(@solana/sysvars@6.9.0(typescript@6.0.3))
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       '@solcli/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -420,6 +459,9 @@ importers:
 
   packages/safety:
     dependencies:
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       '@solcli/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -502,6 +544,12 @@ importers:
 
   packages/tx:
     dependencies:
+      '@solana-program/compute-budget':
+        specifier: 'catalog:'
+        version: 0.15.0(@solana/kit@6.9.0(typescript@6.0.3))
+      '@solana/kit':
+        specifier: 'catalog:'
+        version: 6.9.0(typescript@6.0.3)
       '@solcli/cache':
         specifier: workspace:*
         version: link:../cache
@@ -1113,6 +1161,32 @@ packages:
   '@sindresorhus/merge-streams@4.0.0':
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
+
+  '@solana-program/compute-budget@0.15.0':
+    resolution: {integrity: sha512-toejNdIkzpUTqLSIzP0Nofr/EFel8QpPWuTtIKzfCcjn+mXpkThHxPJaNesk251rSTiWaxDZ3WxG7RxYwTWTqA==}
+    peerDependencies:
+      '@solana/kit': ^6.3.0
+
+  '@solana-program/stake@0.6.1':
+    resolution: {integrity: sha512-Jgo6hNnByGH7Nch+MrybYselbGLTtaq+/sUnMpf0DY7KtujM8lWmZYLg+eUaea9pyW47b6LVS3WXXE9vMdWraQ==}
+    peerDependencies:
+      '@solana/kit': ^6.0
+
+  '@solana-program/system@0.12.0':
+    resolution: {integrity: sha512-ZnAAWeGVMWNtJhw3GdifI2HnhZ0A0H0qs8tBkcFvxp/8wIavvO+GOM4Jd0N22u2+Lni2zcwvcrxrsxj6Mjphng==}
+    peerDependencies:
+      '@solana/kit': ^6.1.0
+
+  '@solana-program/token-2022@0.9.0':
+    resolution: {integrity: sha512-j8fPBc/oUApYF7aW0ub6cIV7dbbtXC+Y6oDcI9SUs6BXXSq+lj7p7XRU+GEH8qWfyQ5ziRiOLI9s2AZjJY1Icg==}
+    peerDependencies:
+      '@solana/kit': ^6.0.0
+      '@solana/sysvars': ^5.0
+
+  '@solana-program/token@0.13.0':
+    resolution: {integrity: sha512-/Apjrd5lwOJGrPB0J5Rv7EBeclvyEBQPAGA85Scm7wBH+GpkbdLDM9uK3TNg8jjFKyWQYai/JtPHbrx7VgFLSg==}
+    peerDependencies:
+      '@solana/kit': ^6.5.0
 
   '@solana/accounts@6.9.0':
     resolution: {integrity: sha512-g36AJreJrgf9AAjOfbdFHEFUTymBgzbWHoEDElZ+fDKvqBINDiUVKzDApwc7C7kGPMFqQBaoEHnQRxf2IqfKZQ==}
@@ -3184,6 +3258,28 @@ snapshots:
   '@sec-ant/readable-stream@0.4.1': {}
 
   '@sindresorhus/merge-streams@4.0.0': {}
+
+  '@solana-program/compute-budget@0.15.0(@solana/kit@6.9.0(typescript@6.0.3))':
+    dependencies:
+      '@solana/kit': 6.9.0(typescript@6.0.3)
+
+  '@solana-program/stake@0.6.1(@solana/kit@6.9.0(typescript@6.0.3))':
+    dependencies:
+      '@solana/kit': 6.9.0(typescript@6.0.3)
+
+  '@solana-program/system@0.12.0(@solana/kit@6.9.0(typescript@6.0.3))':
+    dependencies:
+      '@solana/kit': 6.9.0(typescript@6.0.3)
+
+  '@solana-program/token-2022@0.9.0(@solana/kit@6.9.0(typescript@6.0.3))(@solana/sysvars@6.9.0(typescript@6.0.3))':
+    dependencies:
+      '@solana/kit': 6.9.0(typescript@6.0.3)
+      '@solana/sysvars': 6.9.0(typescript@6.0.3)
+
+  '@solana-program/token@0.13.0(@solana/kit@6.9.0(typescript@6.0.3))':
+    dependencies:
+      '@solana-program/system': 0.12.0(@solana/kit@6.9.0(typescript@6.0.3))
+      '@solana/kit': 6.9.0(typescript@6.0.3)
 
   '@solana/accounts@6.9.0(typescript@6.0.3)':
     dependencies:

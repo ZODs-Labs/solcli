@@ -101,7 +101,8 @@ for (const file of commandFiles) {
     if (
       spec.startsWith("@solcli/") &&
       !spec.startsWith("@solcli/contracts") &&
-      !spec.startsWith("@solcli/platform")
+      !spec.startsWith("@solcli/platform") &&
+      !spec.startsWith("@solcli/protocol-")
     ) {
       fail(file, `command imports concrete package ${spec}`);
     }

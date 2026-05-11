@@ -212,7 +212,7 @@ describe("blockhash refresh", () => {
     expect(result.ok).toBe(true);
     expect(refreshCalls).toBe(1);
     expect(sign.callLog).toHaveLength(2);
-    expect(sign.callLog[1]?.plan.recentBlockhash).toBe(NEXT_BLOCKHASH);
+    expect(sign.callLog[1]?.plan.lifetimeConstraint.blockhash).toBe(NEXT_BLOCKHASH);
   });
 
   it("3 consecutive BlockhashExpired returns Err(TxBlockhashExpiredV2Error)", async () => {

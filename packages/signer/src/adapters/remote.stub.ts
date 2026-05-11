@@ -1,5 +1,6 @@
 import { SignerNotAvailableError } from "@solcli/errors";
 import type {
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAdapter,
   SignerAlias,
@@ -7,7 +8,6 @@ import type {
   SignerInfoOptions,
   SignerInitDeps,
   SignTransactionOptions,
-  TransactionPlan,
 } from "../port.js";
 
 /**
@@ -29,7 +29,7 @@ export const remoteStub: SignerAdapter = {
   },
   async sign(
     _alias: SignerAlias,
-    _plan: TransactionPlan,
+    _message: SignableTransactionMessage,
     _opts: SignTransactionOptions,
   ): Promise<SignedTransaction> {
     throw new SignerNotAvailableError(

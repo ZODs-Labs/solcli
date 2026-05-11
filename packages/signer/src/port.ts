@@ -1,5 +1,6 @@
 import type {
   EmitEventPort,
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAdapter as SignerAdapterKind,
   SignerAlias,
@@ -8,10 +9,10 @@ import type {
   SignerInfoPort,
   SignTransactionOptions,
   SignTransactionPort,
-  TransactionPlan,
 } from "@solcli/contracts";
 
 export type {
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAdapterKind,
   SignerAlias,
@@ -20,7 +21,6 @@ export type {
   SignerInfoPort,
   SignTransactionOptions,
   SignTransactionPort,
-  TransactionPlan,
 };
 
 /**

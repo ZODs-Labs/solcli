@@ -1,3 +1,11 @@
+import {
+  AccountRole,
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 import type { Blockhash, IntentEnvelope, Lamports, Pubkey, SignerAlias } from "@solcli/contracts";
 import { SignerNotAvailableError } from "@solcli/errors";
 import { describe, expect, expectTypeOf, it } from "vitest";
@@ -7,12 +15,12 @@ import { squadsStub } from "../../src/adapters/squads.stub.js";
 import type {
   KeychainBackend,
   SecretsCrypto,
+  SignableTransactionMessage,
   SignerAdapter,
   SignerInitDeps,
   SignerLogger,
   SignerPlatform,
   SignTransactionOptions,
-  TransactionPlan,
 } from "../../src/port.js";
 
 function asAlias(s: string): SignerAlias {
@@ -24,20 +32,25 @@ const PROGRAM = "11111111111111111111111111111112" as unknown as Pubkey;
 const BLOCKHASH = "FwYJgr5qfQyU2t3vXLD46wGAVwYn4mxN5RZ2C4o9pAaa" as unknown as Blockhash;
 const ZERO_LAMPORTS = 0n as unknown as Lamports;
 
-function makePlan(): TransactionPlan {
-  return {
-    version: 0,
-    payer: PAYER,
-    recentBlockhash: BLOCKHASH,
-    instructions: [
-      {
-        programId: PROGRAM,
-        keys: [{ pubkey: PAYER, isSigner: true, isWritable: true }],
-        data: new Uint8Array([0]),
-      },
-    ],
-    expectedSigners: [PAYER],
-  };
+function makePlan(): SignableTransactionMessage {
+  return pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(PAYER, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        { blockhash: BLOCKHASH, lastValidBlockHeight: 0n },
+        m,
+      ),
+    (m) =>
+      appendTransactionMessageInstruction(
+        {
+          programAddress: PROGRAM,
+          accounts: [{ address: PAYER, role: AccountRole.WRITABLE_SIGNER }],
+          data: new Uint8Array([0]),
+        },
+        m,
+      ),
+  );
 }
 
 function makeIntent(alias: string): IntentEnvelope {

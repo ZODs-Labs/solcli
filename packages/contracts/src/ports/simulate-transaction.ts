@@ -1,5 +1,5 @@
 import type { SimulationResult } from "../domain/simulation-result.js";
-import type { TransactionPlan } from "../domain/tx-plan.js";
+import type { SignableTransactionMessage } from "../domain/tx-plan.js";
 
 export interface SimulateTransactionOptions {
   readonly signal: AbortSignal;
@@ -8,5 +8,8 @@ export interface SimulateTransactionOptions {
 }
 
 export interface SimulateTransactionPort {
-  simulate(plan: TransactionPlan, opts: SimulateTransactionOptions): Promise<SimulationResult>;
+  simulate(
+    message: SignableTransactionMessage,
+    opts: SimulateTransactionOptions,
+  ): Promise<SimulationResult>;
 }

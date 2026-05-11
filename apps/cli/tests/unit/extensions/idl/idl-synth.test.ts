@@ -89,15 +89,16 @@ describe("synthesizeCommands (memo IDL)", () => {
       flags: { message: "hello", "account-payer": "11111111111111111111111111111112" },
     });
     expect(plan.version).toBe(0);
-    expect(plan.payer).toBe("11111111111111111111111111111112");
+    expect(plan.feePayer.address).toBe("11111111111111111111111111111112");
     expect(plan.instructions).toHaveLength(1);
     const ix = plan.instructions[0];
     if (!ix) throw new Error("plan has no instruction");
-    expect(ix.programId).toBe("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
-    expect(ix.keys).toHaveLength(1);
-    expect(ix.keys[0]?.pubkey).toBe("11111111111111111111111111111112");
-    expect(ix.keys[0]?.isSigner).toBe(true);
-    expect(ix.keys[0]?.isWritable).toBe(true);
+    expect(ix.programAddress).toBe("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+    expect(ix.accounts).toHaveLength(1);
+    expect(ix.accounts?.[0]?.address).toBe("11111111111111111111111111111112");
+    // WRITABLE_SIGNER = 3 (signer & writable)
+    expect(ix.accounts?.[0]?.role).toBe(3);
+    if (!ix.data) throw new Error("instruction data missing");
     // Sighash + LP-length(5) + "hello" = 8 + 4 + 5 = 17 bytes.
     expect(ix.data.length).toBe(17);
     expect(Buffer.from(ix.data.slice(0, 8)).toString("hex")).toBe("0b04ed590bb7b10c");

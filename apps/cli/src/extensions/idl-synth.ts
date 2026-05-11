@@ -1,13 +1,22 @@
 import { createHash, randomBytes } from "node:crypto";
+import {
+  AccountRole,
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  isSignerRole,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 import type {
+  AccountMeta,
   AnchorIdl,
   AnchorIdlAccountMeta,
   AnchorIdlInstruction,
   Blockhash,
-  InstructionAccountMeta,
-  InstructionPlan,
+  Instruction,
   Pubkey,
-  TransactionPlan,
+  SignableTransactionMessage,
 } from "@solcli/contracts";
 import { IdlNotFoundError, ValidationError } from "@solcli/errors";
 
@@ -60,14 +69,14 @@ export interface SynthesizerHandlerContext {
 
 export interface SynthesizedCommandPlanResult {
   readonly kind: "plan";
-  readonly plan: TransactionPlan;
+  readonly plan: SignableTransactionMessage;
   readonly programLabel: string;
   readonly instruction: string;
 }
 
 export interface SynthesizedCommandExecuteResult {
   readonly kind: "execute";
-  readonly plan: TransactionPlan;
+  readonly plan: SignableTransactionMessage;
   readonly programLabel: string;
   readonly instruction: string;
   readonly result: unknown;
@@ -85,7 +94,10 @@ export interface TxExecuteOptions {
   readonly execute: boolean;
 }
 
-export type TxExecuteFn = (plan: TransactionPlan, opts: TxExecuteOptions) => Promise<unknown>;
+export type TxExecuteFn = (
+  plan: SignableTransactionMessage,
+  opts: TxExecuteOptions,
+) => Promise<unknown>;
 
 export interface JsonSchemaProperty {
   readonly type: "integer" | "string" | "boolean" | "array";
@@ -162,7 +174,7 @@ export type SupportedPrimitive =
 
 /**
  * Walks each instruction in the IDL and emits a SynthesizedCommand. Each
- * command exposes a handler that builds a TransactionPlan from the parsed
+ * command exposes a handler that builds a SignableTransactionMessage from the parsed
  * flags and dispatches it via ctx.ops.txExecute when --execute or --simulate
  * is set, or returns the plan otherwise so callers can inspect it.
  */
@@ -317,14 +329,14 @@ export interface BuildPlanInput {
   readonly flags: Readonly<Record<string, unknown>>;
 }
 
-export function buildTransactionPlan(input: BuildPlanInput): TransactionPlan {
+export function buildTransactionPlan(input: BuildPlanInput): SignableTransactionMessage {
   if (input.programId === undefined || input.programId === "") {
     throw new ValidationError(
       "Synthesized command requires a programId; the cached IDL must declare it",
       { details: { instruction: input.ix.name } },
     );
   }
-  const programId = input.programId as Pubkey;
+  const programAddress = input.programId as Pubkey;
   const dataParts: Uint8Array[] = [anchorSighash(input.ix.name)];
   for (const arg of input.args) {
     const raw = input.flags[arg.name];
@@ -332,7 +344,7 @@ export function buildTransactionPlan(input: BuildPlanInput): TransactionPlan {
   }
   const data = concatBytes(dataParts);
 
-  const keys: InstructionAccountMeta[] = [];
+  const accounts: AccountMeta[] = [];
   for (const account of input.accounts) {
     const flagName = accountFlagName(account.name);
     const value = input.flags[flagName] ?? input.flags[account.name];
@@ -342,44 +354,47 @@ export function buildTransactionPlan(input: BuildPlanInput): TransactionPlan {
         { details: { instruction: input.ix.name, account: account.name } },
       );
     }
-    keys.push({
-      pubkey: value as Pubkey,
-      isSigner: account.signer,
-      isWritable: account.writable,
+    accounts.push({
+      address: value as Pubkey,
+      role: roleFor(account.signer, account.writable),
     });
   }
 
   const payerFlag = readString(input.flags["payer"]);
   const payer =
-    payerFlag !== undefined && payerFlag !== "" ? (payerFlag as Pubkey) : pickPayer(keys);
+    payerFlag !== undefined && payerFlag !== "" ? (payerFlag as Pubkey) : pickPayer(accounts);
   const blockhashFlag = readString(input.flags["recent-blockhash"]);
   const recentBlockhash = (blockhashFlag ?? "11111111111111111111111111111111") as Blockhash;
-  const signers: Pubkey[] = [];
-  for (const meta of keys) {
-    if (meta.isSigner && !signers.some((s) => s === meta.pubkey)) signers.push(meta.pubkey);
-  }
-  if (!signers.some((s) => s === payer)) signers.unshift(payer);
 
-  const instruction: InstructionPlan = {
-    programId,
-    keys: Object.freeze(keys),
+  const instruction: Instruction = {
+    programAddress,
+    accounts: Object.freeze(accounts),
     data,
   };
-  const plan: TransactionPlan = {
-    version: 0,
-    payer,
-    recentBlockhash,
-    instructions: Object.freeze([instruction]),
-    expectedSigners: Object.freeze(signers),
-  };
-  return plan;
+  return pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(payer, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        { blockhash: recentBlockhash, lastValidBlockHeight: 0n },
+        m,
+      ),
+    (m) => appendTransactionMessageInstruction(instruction, m),
+  );
 }
 
-function pickPayer(keys: readonly InstructionAccountMeta[]): Pubkey {
-  for (const meta of keys) {
-    if (meta.isSigner) return meta.pubkey;
+function roleFor(signer: boolean, writable: boolean): AccountRole {
+  if (signer && writable) return AccountRole.WRITABLE_SIGNER;
+  if (signer) return AccountRole.READONLY_SIGNER;
+  if (writable) return AccountRole.WRITABLE;
+  return AccountRole.READONLY;
+}
+
+function pickPayer(accounts: readonly AccountMeta[]): Pubkey {
+  for (const meta of accounts) {
+    if (isSignerRole(meta.role)) return meta.address;
   }
-  if (keys[0]) return keys[0].pubkey;
+  if (accounts[0]) return accounts[0].address;
   throw new ValidationError("Synthesized command requires at least one account or a --payer flag");
 }
 

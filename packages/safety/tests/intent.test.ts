@@ -1,3 +1,4 @@
+import { AccountRole } from "@solana/kit";
 import type { EventRecord, IntentEnvelope } from "@solcli/contracts";
 import { describe, expect, it } from "vitest";
 import { emitIntent, summarizeIntent } from "../src/intent.js";
@@ -8,21 +9,21 @@ describe("summarizeIntent", () => {
     const tp = plan({
       instructions: [
         {
-          programId: pk("progA"),
-          keys: [
-            { pubkey: pk("w1"), isSigner: false, isWritable: true },
-            { pubkey: pk("r1"), isSigner: false, isWritable: false },
+          programAddress: pk("progA"),
+          accounts: [
+            { address: pk("w1"), role: AccountRole.WRITABLE },
+            { address: pk("r1"), role: AccountRole.READONLY },
           ],
           data: new Uint8Array(),
         },
         {
-          programId: pk("progA"),
-          keys: [{ pubkey: pk("w1"), isSigner: false, isWritable: true }],
+          programAddress: pk("progA"),
+          accounts: [{ address: pk("w1"), role: AccountRole.WRITABLE }],
           data: new Uint8Array(),
         },
         {
-          programId: pk("progB"),
-          keys: [{ pubkey: pk("w2"), isSigner: false, isWritable: true }],
+          programAddress: pk("progB"),
+          accounts: [{ address: pk("w2"), role: AccountRole.WRITABLE }],
           data: new Uint8Array(),
         },
       ],

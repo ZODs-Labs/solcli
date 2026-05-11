@@ -1,9 +1,18 @@
+import {
+  AccountRole,
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 import type {
   Blockhash,
+  Instruction,
   Lamports,
   Pubkey,
+  SignableTransactionMessage,
   SimulationResult,
-  TransactionPlan,
 } from "@solcli/contracts";
 
 export function pk(s: string): Pubkey {
@@ -21,28 +30,33 @@ export function lam(n: bigint): Lamports {
 export function plan(
   overrides: Partial<{
     payer: Pubkey;
-    instructions: TransactionPlan["instructions"];
-    expectedSigners: readonly Pubkey[];
-    tags: Readonly<Record<string, string>>;
+    instructions: readonly Instruction[];
   }> = {},
-): TransactionPlan {
-  return {
-    version: 0,
-    payer: overrides.payer ?? pk("payerA"),
-    recentBlockhash: bh("bh1"),
-    instructions: overrides.instructions ?? [
-      {
-        programId: pk("prog1"),
-        keys: [
-          { pubkey: pk("acc1"), isSigner: false, isWritable: true },
-          { pubkey: pk("acc2"), isSigner: true, isWritable: false },
-        ],
-        data: new Uint8Array(),
-      },
-    ],
-    expectedSigners: overrides.expectedSigners ?? [pk("payerA")],
-    ...(overrides.tags !== undefined ? { tags: overrides.tags } : {}),
-  };
+): SignableTransactionMessage {
+  const payer = overrides.payer ?? pk("payerA");
+  const instructions: readonly Instruction[] = overrides.instructions ?? [
+    {
+      programAddress: pk("prog1"),
+      accounts: [
+        { address: pk("acc1"), role: AccountRole.WRITABLE },
+        { address: pk("acc2"), role: AccountRole.READONLY_SIGNER },
+      ],
+      data: new Uint8Array(),
+    },
+  ];
+  let msg: SignableTransactionMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(payer, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        { blockhash: bh("bh1"), lastValidBlockHeight: 0n },
+        m,
+      ),
+  );
+  for (const ix of instructions) {
+    msg = appendTransactionMessageInstruction(ix, msg);
+  }
+  return msg;
 }
 
 export function simulation(

@@ -1,57 +1,54 @@
-import type {
-  Blockhash,
-  InstructionPlan,
-  Lamports,
-  Pubkey,
-  TransactionPlan,
-} from "@solcli/contracts";
-import { SYSTEM_PROGRAM } from "./constants.js";
+import {
+  type Address,
+  appendTransactionMessageInstruction,
+  type Blockhash,
+  createNoopSigner,
+  createTransactionMessage,
+  type Lamports,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
+import { getTransferSolInstruction } from "@solana-program/system";
+import type { SignableTransactionMessage } from "@solcli/contracts";
 
-export interface BuildTransferPlanArgs {
-  readonly from: Pubkey;
-  readonly to: Pubkey;
+export interface BuildTransferMessageArgs {
+  readonly from: Address;
+  readonly to: Address;
   readonly lamports: Lamports;
   readonly recentBlockhash: Blockhash;
-  readonly priorityFeeMicroLamportsPerCu?: bigint;
-  readonly computeUnitLimit?: number;
+  /** Block height after which the blockhash is considered too old to land. */
+  readonly lastValidBlockHeight?: bigint;
 }
 
 /**
- * Build a TransactionPlan for SystemProgram::Transfer.
+ * Build a fully-formed Solana v0 transaction message for a SystemProgram
+ * transfer. Delegates the instruction encoding to `@solana-program/system`
+ * and composes the message with Kit's transaction-message helpers.
  *
- * Wire format (Solana System Program instruction 2):
- *   [0..4]  u32 LE tag = 2
- *   [4..12] u64 LE lamports
- *
- * TODO: when the v1 RPC client lands, the layout shim should move into
- * @solcli/solana-stubs so every native program shares one source of truth.
+ * The source account is wrapped in a noop signer; the real signing happens
+ * later through `@solcli/signer` (or whatever signer adapter is configured)
+ * which already knows the keypair for `args.from`.
  */
-export function buildTransferPlan(args: BuildTransferPlanArgs): TransactionPlan {
-  const data = new Uint8Array(12);
-  const view = new DataView(data.buffer);
-  view.setUint32(0, 2, true);
-  view.setBigUint64(4, args.lamports as unknown as bigint, true);
+export function buildTransferMessage(args: BuildTransferMessageArgs): SignableTransactionMessage {
+  const source = createNoopSigner(args.from);
+  const transfer = getTransferSolInstruction({
+    source,
+    destination: args.to,
+    amount: args.lamports,
+  });
 
-  const instruction: InstructionPlan = {
-    programId: SYSTEM_PROGRAM,
-    keys: [
-      { pubkey: args.from, isSigner: true, isWritable: true },
-      { pubkey: args.to, isSigner: false, isWritable: true },
-    ],
-    data,
-  };
-
-  const plan: TransactionPlan = {
-    version: 0,
-    payer: args.from,
-    recentBlockhash: args.recentBlockhash,
-    instructions: [instruction],
-    expectedSigners: [args.from],
-    ...(args.priorityFeeMicroLamportsPerCu !== undefined
-      ? { priorityFeeMicroLamportsPerCu: args.priorityFeeMicroLamportsPerCu }
-      : {}),
-    ...(args.computeUnitLimit !== undefined ? { computeUnitLimit: args.computeUnitLimit } : {}),
-  };
-
-  return plan;
+  return pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(args.from, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        {
+          blockhash: args.recentBlockhash,
+          lastValidBlockHeight: args.lastValidBlockHeight ?? 0n,
+        },
+        m,
+      ),
+    (m) => appendTransactionMessageInstruction(transfer, m),
+  );
 }

@@ -4,6 +4,7 @@ import type {
   FeePolicy,
   GetPriorityFeePolicyPort,
   Result,
+  SignableTransactionMessage,
   Signature,
   SignedTransaction,
   SignerAlias,
@@ -11,7 +12,6 @@ import type {
   SimulateTransactionPort,
   SimulationResult,
   SubmitBundlePort,
-  TransactionPlan,
 } from "@solcli/contracts";
 import { runExecute } from "./execute.js";
 import { runSimulate } from "./stages/simulate.js";
@@ -76,12 +76,15 @@ export interface ExecuteOptionsExtended extends ExecuteTransactionOptions {
 
 export interface TransactionService {
   execute(
-    plan: TransactionPlan,
+    plan: SignableTransactionMessage,
     opts: ExecuteOptionsExtended,
     alias: SignerAlias,
     feePolicy: FeePolicy,
   ): Promise<Result<Signature, unknown>>;
-  simulate(plan: TransactionPlan, opts: { signal: AbortSignal }): Promise<SimulationResult>;
+  simulate(
+    plan: SignableTransactionMessage,
+    opts: { signal: AbortSignal },
+  ): Promise<SimulationResult>;
 }
 
 export function createTransactionService(deps: TransactionServiceDeps): TransactionService {

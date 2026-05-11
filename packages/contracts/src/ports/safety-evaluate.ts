@@ -1,6 +1,6 @@
 import type { IntentEnvelope } from "../domain/intent-envelope.js";
 import type { SimulationResult } from "../domain/simulation-result.js";
-import type { TransactionPlan } from "../domain/tx-plan.js";
+import type { SignableTransactionMessage } from "../domain/tx-plan.js";
 
 export interface SafetyEvaluateOptions {
   readonly execute: boolean;
@@ -17,14 +17,14 @@ export interface SafetyVerdict {
 }
 
 export interface SafetyEvaluatePort {
-  evaluateBuild(plan: TransactionPlan, opts: SafetyEvaluateOptions): SafetyVerdict;
+  evaluateBuild(message: SignableTransactionMessage, opts: SafetyEvaluateOptions): SafetyVerdict;
   evaluateSimulation(
-    plan: TransactionPlan,
+    message: SignableTransactionMessage,
     simulation: SimulationResult,
     opts: SafetyEvaluateOptions,
   ): SafetyVerdict;
   summarizeIntent(
-    plan: TransactionPlan,
+    message: SignableTransactionMessage,
     simulation: SimulationResult,
     opts: SafetyEvaluateOptions,
   ): IntentEnvelope;

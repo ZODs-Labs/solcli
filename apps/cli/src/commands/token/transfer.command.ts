@@ -1,14 +1,13 @@
 import type {
   Blockhash,
   FeePolicy,
-  InstructionPlan,
   MintAddress,
   Pubkey,
   SignerAlias,
   TokenAccount,
   TokenAmount,
-  TransactionPlan,
 } from "@solcli/contracts";
+import { buildTokenTransferMessage } from "@solcli/protocol-spl-token";
 import { defineCommand } from "citty";
 import { type Context, withContext } from "../../context.js";
 import { resolvePort } from "../../operations/resolve-port.js";
@@ -58,56 +57,6 @@ function parseVia(ctx: Context, value: string): "rpc" | "jito" {
     });
   }
   return value as "rpc" | "jito";
-}
-
-/**
- * Build a minimal SPL Token TransferChecked instruction plan.
- *
- * Wire format (Token program instruction 12, TransferChecked):
- *   [0]      u8 tag = 12
- *   [1..9]   u64 LE amount
- *   [9]      u8 decimals
- *
- * Accounts: source, mint, destination, owner (signer).
- *
- * TODO: migrate to `buildSplTransferPlan` from `@solcli/protocol-spl-token`
- * once that package is added to the cli app's dependencies. The decoded
- * mint program (Token vs Token-2022) must be resolved upstream because the
- * Token-2022 path is intentionally refused for v1.
- */
-function buildSplTransferPlan(args: {
-  source: TokenAccount;
-  destination: TokenAccount;
-  mint: MintAddress;
-  owner: Pubkey;
-  amount: TokenAmount;
-  decimals: number;
-  recentBlockhash: Blockhash;
-}): TransactionPlan {
-  const data = new Uint8Array(10);
-  data[0] = 12;
-  const view = new DataView(data.buffer);
-  view.setBigUint64(1, args.amount as unknown as bigint, true);
-  data[9] = args.decimals;
-
-  const instruction: InstructionPlan = {
-    programId: TOKEN_PROGRAM as Pubkey,
-    keys: [
-      { pubkey: args.source as unknown as Pubkey, isSigner: false, isWritable: true },
-      { pubkey: args.mint as unknown as Pubkey, isSigner: false, isWritable: false },
-      { pubkey: args.destination as unknown as Pubkey, isSigner: false, isWritable: true },
-      { pubkey: args.owner, isSigner: true, isWritable: false },
-    ],
-    data,
-  };
-
-  return {
-    version: 0,
-    payer: args.owner,
-    recentBlockhash: args.recentBlockhash,
-    instructions: [instruction],
-    expectedSigners: [args.owner],
-  };
 }
 
 async function refuseToken2022(ctx: Context, programOwner: string | undefined): Promise<void> {
@@ -271,7 +220,7 @@ export default defineCommand({
       // TODO: wiring -- replace with ctx.ports.refreshBlockhash({ signal }).
       const recentBlockhash: Blockhash = PLACEHOLDER_BLOCKHASH as Blockhash;
 
-      const plan = buildSplTransferPlan({
+      const plan = buildTokenTransferMessage({
         source,
         destination,
         mint,
@@ -303,8 +252,8 @@ export default defineCommand({
           data: {
             plan: {
               instructions: plan.instructions.length,
-              payer: plan.payer,
-              recentBlockhash: plan.recentBlockhash,
+              payer: plan.feePayer.address,
+              recentBlockhash: plan.lifetimeConstraint.blockhash,
             },
             transfer: {
               source,

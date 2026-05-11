@@ -1,11 +1,11 @@
 import type {
   Pubkey,
+  SignableTransactionMessage,
   SignedTransaction,
   SignerAlias,
   SignerInfo,
   SignerInfoOptions,
   SignTransactionOptions,
-  TransactionPlan,
 } from "@solcli/contracts";
 import { InternalError, SignerRefusedError, ValidationError } from "@solcli/errors";
 import { base58Decode, base58Encode } from "../base58.js";
@@ -31,7 +31,7 @@ export class EnvSignerAdapter implements SignerAdapter {
 
   async sign(
     alias: SignerAlias,
-    plan: TransactionPlan,
+    message: SignableTransactionMessage,
     opts: SignTransactionOptions,
   ): Promise<SignedTransaction> {
     const deps = this.requireDeps();
@@ -57,7 +57,7 @@ export class EnvSignerAdapter implements SignerAdapter {
     return signWithKeyBytes({
       alias,
       adapter: KIND,
-      plan,
+      message,
       opts,
       deps,
       keyBytes,

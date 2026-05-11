@@ -84,11 +84,10 @@ export function createSafetyEvaluator(deps?: CreateSafetyEvaluatorDeps): SafetyE
       return compose([budget, programs]);
     },
     summarizeIntent(plan, simulation, opts) {
-      const signerAlias = plan.tags?.["signerAlias"] ?? "";
       return summarizeIntent(plan, simulation, {
         costBudgetLamports: opts.costBudgetLamports,
         idempotencyKey: opts.idempotencyKey,
-        signerAlias,
+        signerAlias: "",
       });
     },
   };

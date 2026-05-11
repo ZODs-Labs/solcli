@@ -3,13 +3,21 @@ import { chmod, copyFile, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  AccountRole,
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 import type {
   Blockhash,
   IntentEnvelope,
   Lamports,
   Pubkey,
+  SignableTransactionMessage,
   SignerAlias,
-  TransactionPlan,
 } from "@solcli/contracts";
 import {
   NonInteractiveError,
@@ -41,21 +49,29 @@ function lamports(n: bigint): Lamports {
   return n as unknown as Lamports;
 }
 
-function makePlan(): TransactionPlan {
+function makePlan(): SignableTransactionMessage {
   const payer = asPubkey("So11111111111111111111111111111111111111112");
-  return {
-    version: 0,
-    payer,
-    recentBlockhash: asBlockhash("EETUmEymExpUDFLbpXjGn5dKxoWFtAkugRdsLU6duuSt"),
-    instructions: [
-      {
-        programId: asPubkey("11111111111111111111111111111111"),
-        keys: [{ pubkey: payer, isSigner: true, isWritable: true }],
-        data: new Uint8Array([1, 2, 3, 4]),
-      },
-    ],
-    expectedSigners: [payer],
-  };
+  return pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(payer, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        {
+          blockhash: asBlockhash("EETUmEymExpUDFLbpXjGn5dKxoWFtAkugRdsLU6duuSt"),
+          lastValidBlockHeight: 0n,
+        },
+        m,
+      ),
+    (m) =>
+      appendTransactionMessageInstruction(
+        {
+          programAddress: asPubkey("11111111111111111111111111111111"),
+          accounts: [{ address: payer, role: AccountRole.WRITABLE_SIGNER }],
+          data: new Uint8Array([1, 2, 3, 4]),
+        },
+        m,
+      ),
+  );
 }
 
 function makeIntent(): IntentEnvelope {

@@ -1,11 +1,11 @@
-import { buildDelegatePlan, buildWithdrawPlan } from "./stake.js";
-import { buildTransferPlan } from "./transfer.js";
+import { buildDelegateMessage, buildWithdrawMessage } from "./stake.js";
+import { buildTransferMessage } from "./transfer.js";
 import { readVoteInfo } from "./vote.js";
 
 export interface NativeProtocolPorts {
-  readonly buildTransferPlan: typeof buildTransferPlan;
-  readonly buildDelegatePlan: typeof buildDelegatePlan;
-  readonly buildWithdrawPlan: typeof buildWithdrawPlan;
+  readonly buildTransferMessage: typeof buildTransferMessage;
+  readonly buildDelegateMessage: typeof buildDelegateMessage;
+  readonly buildWithdrawMessage: typeof buildWithdrawMessage;
   readonly readVoteInfo: typeof readVoteInfo;
 }
 
@@ -18,9 +18,9 @@ export interface NativeProtocolBindings {
 export const NATIVE_PROTOCOL_BINDINGS: NativeProtocolBindings = {
   name: "@solcli/protocol-native",
   ports: {
-    buildTransferPlan,
-    buildDelegatePlan,
-    buildWithdrawPlan,
+    buildTransferMessage,
+    buildDelegateMessage,
+    buildWithdrawMessage,
     readVoteInfo,
   },
   commands: ["transfer", "stake", "balance", "account"],

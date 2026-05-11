@@ -69,14 +69,7 @@ describe("createSafetyEvaluator.evaluateSimulation", () => {
 });
 
 describe("createSafetyEvaluator.summarizeIntent", () => {
-  it("derives signerAlias from plan.tags when present", () => {
-    const ev = createSafetyEvaluator();
-    const tp = plan({ tags: { signerAlias: "alice" } });
-    const env = ev.summarizeIntent(tp, simulation(), baseOpts());
-    expect(env.signerAlias).toBe("alice");
-  });
-
-  it("falls back to empty string when no tag is set", () => {
+  it("returns an empty signerAlias by default; callers thread the alias separately", () => {
     const ev = createSafetyEvaluator();
     const env = ev.summarizeIntent(plan(), simulation(), baseOpts());
     expect(env.signerAlias).toBe("");

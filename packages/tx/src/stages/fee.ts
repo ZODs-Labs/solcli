@@ -1,8 +1,8 @@
 import type {
   FeePolicy,
   GetPriorityFeePolicyPort,
+  SignableTransactionMessage,
   SimulationResult,
-  TransactionPlan,
 } from "@solcli/contracts";
 
 export interface FeeStageContext {
@@ -13,7 +13,7 @@ export interface FeeStageContext {
 }
 
 export async function estimateFee(
-  plan: TransactionPlan,
+  plan: SignableTransactionMessage,
   _simulation: SimulationResult,
   ctx: FeeStageContext,
 ): Promise<bigint> {

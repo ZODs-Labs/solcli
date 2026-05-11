@@ -1,109 +1,103 @@
-import type {
-  Blockhash,
-  InstructionPlan,
-  Lamports,
-  Pubkey,
-  TransactionPlan,
-} from "@solcli/contracts";
-import { STAKE_CONFIG, STAKE_PROGRAM, SYSVAR_CLOCK, SYSVAR_STAKE_HISTORY } from "./constants.js";
+import {
+  type Address,
+  appendTransactionMessageInstruction,
+  type Blockhash,
+  createNoopSigner,
+  createTransactionMessage,
+  type Lamports,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
+import { getDelegateStakeInstruction, getWithdrawInstruction } from "@solana-program/stake";
+import type { SignableTransactionMessage } from "@solcli/contracts";
 
-export interface BuildDelegatePlanArgs {
-  readonly stakeAccount: Pubkey;
-  readonly voteAccount: Pubkey;
-  readonly authorizedPubkey: Pubkey;
+/**
+ * Sysvar account address documented since pre-history. The stake-program
+ * instruction defaults `clockSysvar` to this when unset; we set it
+ * explicitly so the wire account list always matches the documented order.
+ */
+const SYSVAR_CLOCK = "SysvarC1ock11111111111111111111111111111111" as Address;
+const SYSVAR_STAKE_HISTORY = "SysvarStakeHistory1111111111111111111111111" as Address;
+/** Formerly the "stake config" account; the stake program still expects it in the slot. */
+const STAKE_LEGACY_UNUSED = "StakeConfig11111111111111111111111111111111" as Address;
+
+export interface BuildDelegateMessageArgs {
+  readonly stakeAccount: Address;
+  readonly voteAccount: Address;
+  readonly authorizedPubkey: Address;
   readonly recentBlockhash: Blockhash;
-  readonly priorityFeeMicroLamportsPerCu?: bigint;
-  readonly computeUnitLimit?: number;
+  readonly lastValidBlockHeight?: bigint;
 }
 
 /**
- * Build a TransactionPlan for StakeProgram::DelegateStake.
- *
- * Wire format (Solana Stake Program instruction 2):
- *   [0..4]  u32 LE tag = 2  (no further data)
- *
- * Key order matches the program definition: stake, vote, clock sysvar,
- * stake history sysvar, stake config and the stake authority signer.
- *
- * TODO: confirm the stake config address against the runtime constant once
- * the v1 RPC flow lands; the literal here matches the documented value but
- * is intentionally not loaded from a network fetch in v0.
+ * Build a v0 transaction message for StakeProgram::DelegateStake using
+ * `@solana-program/stake`. The authorized account is wrapped in a noop
+ * signer for the build phase; the real signature lands later via
+ * `@solcli/signer`.
  */
-export function buildDelegatePlan(args: BuildDelegatePlanArgs): TransactionPlan {
-  const data = new Uint8Array(4);
-  const view = new DataView(data.buffer);
-  view.setUint32(0, 2, true);
-
-  const instruction: InstructionPlan = {
-    programId: STAKE_PROGRAM,
-    keys: [
-      { pubkey: args.stakeAccount, isSigner: false, isWritable: true },
-      { pubkey: args.voteAccount, isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_CLOCK, isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_STAKE_HISTORY, isSigner: false, isWritable: false },
-      { pubkey: STAKE_CONFIG, isSigner: false, isWritable: false },
-      { pubkey: args.authorizedPubkey, isSigner: true, isWritable: false },
-    ],
-    data,
-  };
-
-  return {
-    version: 0,
+export function buildDelegateMessage(args: BuildDelegateMessageArgs): SignableTransactionMessage {
+  const authority = createNoopSigner(args.authorizedPubkey);
+  const ix = getDelegateStakeInstruction({
+    stake: args.stakeAccount,
+    vote: args.voteAccount,
+    clockSysvar: SYSVAR_CLOCK,
+    stakeHistory: SYSVAR_STAKE_HISTORY,
+    unused: STAKE_LEGACY_UNUSED,
+    stakeAuthority: authority,
+  });
+  return composeMessage({
     payer: args.authorizedPubkey,
-    recentBlockhash: args.recentBlockhash,
-    instructions: [instruction],
-    expectedSigners: [args.authorizedPubkey],
-    ...(args.priorityFeeMicroLamportsPerCu !== undefined
-      ? { priorityFeeMicroLamportsPerCu: args.priorityFeeMicroLamportsPerCu }
-      : {}),
-    ...(args.computeUnitLimit !== undefined ? { computeUnitLimit: args.computeUnitLimit } : {}),
-  };
+    blockhash: args.recentBlockhash,
+    lastValidBlockHeight: args.lastValidBlockHeight ?? 0n,
+    instruction: ix,
+  });
 }
 
-export interface BuildWithdrawPlanArgs {
-  readonly stakeAccount: Pubkey;
-  readonly recipient: Pubkey;
-  readonly withdrawAuthority: Pubkey;
+export interface BuildWithdrawMessageArgs {
+  readonly stakeAccount: Address;
+  readonly recipient: Address;
+  readonly withdrawAuthority: Address;
   readonly lamports: Lamports;
   readonly recentBlockhash: Blockhash;
-  readonly priorityFeeMicroLamportsPerCu?: bigint;
-  readonly computeUnitLimit?: number;
+  readonly lastValidBlockHeight?: bigint;
 }
 
-/**
- * Build a TransactionPlan for StakeProgram::Withdraw.
- *
- * Wire format (Solana Stake Program instruction 4):
- *   [0..4]  u32 LE tag = 4
- *   [4..12] u64 LE lamports
- */
-export function buildWithdrawPlan(args: BuildWithdrawPlanArgs): TransactionPlan {
-  const data = new Uint8Array(12);
-  const view = new DataView(data.buffer);
-  view.setUint32(0, 4, true);
-  view.setBigUint64(4, args.lamports as unknown as bigint, true);
-
-  const instruction: InstructionPlan = {
-    programId: STAKE_PROGRAM,
-    keys: [
-      { pubkey: args.stakeAccount, isSigner: false, isWritable: true },
-      { pubkey: args.recipient, isSigner: false, isWritable: true },
-      { pubkey: SYSVAR_CLOCK, isSigner: false, isWritable: false },
-      { pubkey: SYSVAR_STAKE_HISTORY, isSigner: false, isWritable: false },
-      { pubkey: args.withdrawAuthority, isSigner: true, isWritable: false },
-    ],
-    data,
-  };
-
-  return {
-    version: 0,
+/** Build a v0 transaction message for StakeProgram::Withdraw. */
+export function buildWithdrawMessage(args: BuildWithdrawMessageArgs): SignableTransactionMessage {
+  const authority = createNoopSigner(args.withdrawAuthority);
+  const ix = getWithdrawInstruction({
+    stake: args.stakeAccount,
+    recipient: args.recipient,
+    clockSysvar: SYSVAR_CLOCK,
+    stakeHistory: SYSVAR_STAKE_HISTORY,
+    withdrawAuthority: authority,
+    args: args.lamports,
+  });
+  return composeMessage({
     payer: args.withdrawAuthority,
-    recentBlockhash: args.recentBlockhash,
-    instructions: [instruction],
-    expectedSigners: [args.withdrawAuthority],
-    ...(args.priorityFeeMicroLamportsPerCu !== undefined
-      ? { priorityFeeMicroLamportsPerCu: args.priorityFeeMicroLamportsPerCu }
-      : {}),
-    ...(args.computeUnitLimit !== undefined ? { computeUnitLimit: args.computeUnitLimit } : {}),
-  };
+    blockhash: args.recentBlockhash,
+    lastValidBlockHeight: args.lastValidBlockHeight ?? 0n,
+    instruction: ix,
+  });
+}
+
+interface ComposeArgs {
+  payer: Address;
+  blockhash: Blockhash;
+  lastValidBlockHeight: bigint;
+  instruction: Parameters<typeof appendTransactionMessageInstruction>[0];
+}
+
+function composeMessage(c: ComposeArgs): SignableTransactionMessage {
+  return pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(c.payer, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        { blockhash: c.blockhash, lastValidBlockHeight: c.lastValidBlockHeight },
+        m,
+      ),
+    (m) => appendTransactionMessageInstruction(c.instruction, m),
+  );
 }

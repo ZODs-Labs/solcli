@@ -1,10 +1,11 @@
+import { isWritableRole } from "@solana/kit";
 import type {
   EventRecord,
   IntentEnvelope,
   Lamports,
   Pubkey,
+  SignableTransactionMessage,
   SimulationResult,
-  TransactionPlan,
 } from "@solcli/contracts";
 
 export interface SummarizeIntentInput {
@@ -19,7 +20,7 @@ function asLamports(n: bigint): Lamports {
 }
 
 export function summarizeIntent(
-  plan: TransactionPlan,
+  message: SignableTransactionMessage,
   simulation: SimulationResult,
   opts: SummarizeIntentInput,
 ): IntentEnvelope {
@@ -35,28 +36,30 @@ export function summarizeIntent(
   const writableSet = new Set<string>();
   const writableAccounts: Pubkey[] = [];
 
-  for (const ix of plan.instructions) {
-    if (!programSet.has(ix.programId)) {
-      programSet.add(ix.programId);
-      programs.push(ix.programId);
+  for (const ix of message.instructions) {
+    const program = ix.programAddress;
+    if (!programSet.has(program)) {
+      programSet.add(program);
+      programs.push(program);
     }
-    for (const meta of ix.keys) {
-      if (meta.isWritable && !writableSet.has(meta.pubkey)) {
-        writableSet.add(meta.pubkey);
-        writableAccounts.push(meta.pubkey);
+    if (ix.accounts === undefined) continue;
+    for (const meta of ix.accounts) {
+      if (isWritableRole(meta.role) && !writableSet.has(meta.address)) {
+        writableSet.add(meta.address);
+        writableAccounts.push(meta.address);
       }
     }
   }
 
   const summary =
     opts.summary ??
-    `write-intent: ${plan.instructions.length} ix across ${programs.length} program(s); fee ${simulation.feeLamports} lamports; delta ${lamportsDelta} lamports`;
+    `write-intent: ${message.instructions.length} ix across ${programs.length} program(s); fee ${simulation.feeLamports} lamports; delta ${lamportsDelta} lamports`;
 
   return {
     schemaVersion: 1,
     kind: "write-intent",
     summary,
-    payer: plan.payer,
+    payer: message.feePayer.address,
     programs,
     lamportsDelta: asLamports(lamportsDelta),
     writableAccounts,

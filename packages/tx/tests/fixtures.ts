@@ -1,3 +1,11 @@
+import {
+  AccountRole,
+  appendTransactionMessageInstruction,
+  createTransactionMessage,
+  pipe,
+  setTransactionMessageFeePayer,
+  setTransactionMessageLifetimeUsingBlockhash,
+} from "@solana/kit";
 import type {
   Blockhash,
   Bundle,
@@ -8,6 +16,7 @@ import type {
   IntentEnvelope,
   Lamports,
   Pubkey,
+  SignableTransactionMessage,
   Signature,
   SignedTransaction,
   SignerAlias,
@@ -18,7 +27,6 @@ import type {
   SimulationResult,
   SubmitBundleOptions,
   SubmitBundlePort,
-  TransactionPlan,
 } from "@solcli/contracts";
 import type { TransactionServiceDeps } from "../src/service.js";
 
@@ -33,21 +41,25 @@ export const SIGNATURE_BUNDLE =
   "SIG_BUNDLE_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" as unknown as Signature;
 export const ALIAS = "default" as unknown as SignerAlias;
 
-export function makePlan(overrides: Partial<TransactionPlan> = {}): TransactionPlan {
-  return {
-    version: 0,
-    payer: PAYER,
-    recentBlockhash: BLOCKHASH,
-    instructions: [
-      {
-        programId: PROGRAM,
-        keys: [{ pubkey: PAYER, isSigner: true, isWritable: true }],
-        data: new Uint8Array([1, 2, 3]),
-      },
-    ],
-    expectedSigners: [PAYER],
-    ...overrides,
-  };
+export function makePlan(): SignableTransactionMessage {
+  return pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayer(PAYER, m),
+    (m) =>
+      setTransactionMessageLifetimeUsingBlockhash(
+        { blockhash: BLOCKHASH, lastValidBlockHeight: 0n },
+        m,
+      ),
+    (m) =>
+      appendTransactionMessageInstruction(
+        {
+          programAddress: PROGRAM,
+          accounts: [{ address: PAYER, role: AccountRole.WRITABLE_SIGNER }],
+          data: new Uint8Array([1, 2, 3]),
+        },
+        m,
+      ),
+  );
 }
 
 export function makeSimulation(overrides: Partial<SimulationResult> = {}): SimulationResult {
@@ -81,7 +93,7 @@ export interface StubSimulatePort extends SimulateTransactionPort {
 }
 
 export function stubSimulatePort(
-  impl?: (plan: TransactionPlan) => SimulationResult,
+  impl?: (plan: SignableTransactionMessage) => SimulationResult,
 ): StubSimulatePort {
   const calls: SimulateTransactionOptions[] = [];
   return {
@@ -107,11 +119,21 @@ export function stubFeePort(value: bigint = 1234n): GetPriorityFeePolicyPort & {
 }
 
 export interface StubSignPort extends SignTransactionPort {
-  readonly callLog: { alias: SignerAlias; plan: TransactionPlan; intent: IntentEnvelope }[];
+  readonly callLog: {
+    alias: SignerAlias;
+    plan: SignableTransactionMessage;
+    intent: IntentEnvelope;
+  }[];
 }
 
-export function stubSignPort(impl?: (plan: TransactionPlan) => SignedTransaction): StubSignPort {
-  const callLog: { alias: SignerAlias; plan: TransactionPlan; intent: IntentEnvelope }[] = [];
+export function stubSignPort(
+  impl?: (plan: SignableTransactionMessage) => SignedTransaction,
+): StubSignPort {
+  const callLog: {
+    alias: SignerAlias;
+    plan: SignableTransactionMessage;
+    intent: IntentEnvelope;
+  }[] = [];
   return {
     callLog,
     async sign(alias, plan, opts: SignTransactionOptions) {

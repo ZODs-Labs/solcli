@@ -1,11 +1,11 @@
-import type { Pubkey } from "@solcli/contracts";
+import { type Address, getAddressDecoder } from "@solana/kit";
 import { describe, expect, it } from "vitest";
-import { encodeBase58 } from "../src/base58.js";
-import { SYSTEM_PROGRAM } from "../src/constants.js";
 import type { AccountInfo, GetAccountInfoPort, ReadAccountOptions } from "../src/vote.js";
 import { readVoteInfo } from "../src/vote.js";
 
-const VOTE_PUBKEY = "VotePubkey111111111111111111111111111111111" as Pubkey;
+const VOTE_PUBKEY = "VotePubkey111111111111111111111111111111111" as Address;
+const SYSTEM_PROGRAM = "11111111111111111111111111111111" as Address;
+const ADDRESS_DECODER = getAddressDecoder();
 
 function makeFixtureData(): Uint8Array {
   const buf = new Uint8Array(100);
@@ -18,7 +18,7 @@ function makeFixtureData(): Uint8Array {
 
 function makeStubPort(data: Uint8Array | null): GetAccountInfoPort {
   return {
-    read: async (_pubkey: Pubkey, opts: ReadAccountOptions): Promise<AccountInfo | null> => {
+    read: async (_pubkey: Address, opts: ReadAccountOptions): Promise<AccountInfo | null> => {
       opts.signal.throwIfAborted();
       if (data === null) return null;
       return {
@@ -43,9 +43,9 @@ describe("readVoteInfo", () => {
     });
 
     expect(info.commission).toBe(7);
-    expect(info.nodePubkey).toBe(encodeBase58(data.subarray(0, 32)));
-    expect(info.authorizedVoter).toBe(encodeBase58(data.subarray(32, 64)));
-    expect(info.authorizedWithdrawer).toBe(encodeBase58(data.subarray(64, 96)));
+    expect(info.nodePubkey).toBe(ADDRESS_DECODER.decode(data.subarray(0, 32)));
+    expect(info.authorizedVoter).toBe(ADDRESS_DECODER.decode(data.subarray(32, 64)));
+    expect(info.authorizedWithdrawer).toBe(ADDRESS_DECODER.decode(data.subarray(64, 96)));
   });
 
   it("throws when the account is not found", async () => {
