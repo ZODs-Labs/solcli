@@ -47,6 +47,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
     "@napi-rs/keyring": "catalog:",
+    "@noble/hashes": "catalog:",
     "@solana/kit": "catalog:",
     "citty": "catalog:",
     "pino": "catalog:",

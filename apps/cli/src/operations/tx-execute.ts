@@ -1,6 +1,5 @@
 import type {
   FeePolicy,
-  GetPriorityFeePolicyPort,
   IntentEnvelope,
   Lamports,
   Result,
@@ -63,18 +62,13 @@ export async function txExecute(
     return { ok: false, error: new InternalError("aborted before tx-execute started") };
   }
 
-  // Resolve ports via the provider registry. The wiring session will move
-  // this resolution into a dedicated ctx.tx / ctx.safety surface.
-  // TODO: wiring -- expose ctx.safety, ctx.tx, ctx.events on Context.
-  const safetyPort = resolvePort(ctx.providers, "safetyEvaluate").port;
+  // ctx.tx is the canonical sign + send + confirm pipeline. We still resolve
+  // safety + simulate through the provider registry because they are pure
+  // domain ports; ctx.tx itself does its own simulate as the second stage,
+  // but the operation layer also runs an explicit pre-flight simulate so
+  // commands can render the result on the simulate-only path.
+  const safetyPort = ctx.safety;
   const simulatePort = resolvePort(ctx.providers, "simulateTransaction").port;
-  const executePort = resolvePort(ctx.providers, "executeTransaction").port;
-  let feePort: GetPriorityFeePolicyPort | undefined;
-  try {
-    feePort = resolvePort(ctx.providers, "getPriorityFeePolicy").port;
-  } catch {
-    feePort = undefined;
-  }
 
   const safetyOpts = {
     execute: args.execute,
@@ -117,31 +111,32 @@ export async function txExecute(
     return { ok: false, error: toSafetyError(simVerdict.code, simVerdict.reason) };
   }
 
-  // Stage 4: optional priority-fee recommendation. Missing fee port is not
-  // a hard error; the active provider may not support priority fees.
-  let priorityFeeMicroLamports: bigint | undefined;
-  if (feePort && args.feePolicy.kind !== "none") {
-    try {
-      priorityFeeMicroLamports = await feePort.recommend(args.plan, { signal });
-    } catch (err: unknown) {
-      ctx.logger.debug({ err, op: "tx-execute" }, "priority fee recommend failed");
-    }
-  }
+  // Stage 4: priority-fee recommendation is folded into ctx.tx now (the fee
+  // dep is part of TransactionServiceDeps). The local fee port lookup is gone.
+  const priorityFeeMicroLamports: bigint | undefined = undefined;
 
   // Stage 5: synthesize a signed intent for downstream attestation.
   const intent: IntentEnvelope = safetyPort.summarizeIntent(args.plan, simulation, safetyOpts);
 
-  // Stage 6: execute (sign + send + confirm; performed by the execute port).
+  // Stage 6: hand off to ctx.tx (sign + send + confirm). The service does
+  // its own intent + safety gating internally; the operation layer's safety
+  // is the early-exit hint for the simulate-only path.
   if (signal.aborted) {
     return { ok: false, error: new InternalError("aborted before tx send") };
   }
-  const execResult = await executePort.execute(args.plan, {
-    signal,
-    idempotencyKey: args.idempotencyKey,
-    costBudgetLamports: args.maxCostLamports,
-    allowedPrograms: args.allowedPrograms,
-    ...(args.via !== undefined ? { via: args.via } : {}),
-  });
+  const execResult = await ctx.tx.execute(
+    args.plan,
+    {
+      signal,
+      idempotencyKey: args.idempotencyKey,
+      costBudgetLamports: args.maxCostLamports,
+      allowedPrograms: args.allowedPrograms,
+      execute: args.execute,
+      ...(args.via !== undefined ? { via: args.via } : {}),
+    },
+    args.alias as unknown as Parameters<typeof ctx.tx.execute>[2],
+    args.feePolicy,
+  );
   if (!execResult.ok) {
     const cause = execResult.error;
     if (cause instanceof Error) {
@@ -152,7 +147,7 @@ export async function txExecute(
     }
     return {
       ok: false,
-      error: new InternalError("execute port returned an unknown error", {
+      error: new InternalError("ctx.tx returned an unknown error", {
         details: { raw: String(cause) },
       }),
     };

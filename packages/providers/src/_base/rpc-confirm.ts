@@ -9,6 +9,9 @@ import type {
 import { createRecentSignatureConfirmationPromiseFactory } from "@solana/transaction-confirmation";
 import type { Signature } from "@solcli/contracts";
 
+/** Minimum slice of Kit's subscriptions API the confirm factory needs. */
+export type StandardRpcSubscriptionsClient = RpcSubscriptions<SignatureNotificationsApi>;
+
 export interface ConfirmStageResult {
   readonly slot: number;
   readonly confirmationStatus: "processed" | "confirmed" | "finalized";

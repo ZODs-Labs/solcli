@@ -27,12 +27,17 @@ describe("createHeliusProvider", () => {
       createHeliusProvider({
         apiKey: "abc",
         rpc: fakeCreate("https://mainnet.helius-rpc.com/?api-key=abc"),
+        rpcSubscriptions: makeFakeSubscriptions(),
       });
       expect(calls[0]).toBe("https://mainnet.helius-rpc.com/?api-key=abc");
     });
 
     it("accepts an explicit https endpoint", () => {
-      const p = createHeliusProvider({ endpoint: "https://my-rpc/", rpc: makeFakeRpc() });
+      const p = createHeliusProvider({
+        endpoint: "https://my-rpc/",
+        rpc: makeFakeRpc(),
+        rpcSubscriptions: makeFakeSubscriptions(),
+      });
       expect(p.manifest.name).toBe("helius");
     });
 
@@ -61,7 +66,7 @@ describe("createHeliusProvider", () => {
       const rpc = makeFakeRpc({
         getBalance: vi.fn((_addr: Address) => pending(rpcResponse(123_456n as Lamports))),
       });
-      const provider = createHeliusProvider({ rpc });
+      const provider = createHeliusProvider({ rpc, rpcSubscriptions: makeFakeSubscriptions() });
       const port = provider.port("getBalance");
       if (port === undefined) throw new Error("getBalance port missing");
       const ctrl = new AbortController();
@@ -74,7 +79,7 @@ describe("createHeliusProvider", () => {
       const rpc = makeFakeRpc({
         getTransaction: vi.fn(() => pending(null)),
       });
-      const provider = createHeliusProvider({ rpc });
+      const provider = createHeliusProvider({ rpc, rpcSubscriptions: makeFakeSubscriptions() });
       const port = provider.port("getTransaction");
       if (port === undefined) throw new Error("getTransaction port missing");
       await expect(
@@ -94,6 +99,7 @@ type FakeRpcMethods = Partial<{
 
 function makeFakeRpc(overrides: FakeRpcMethods = {}): StandardRpcClient {
   const base = {
+    getAccountInfo: () => pending(rpcResponse(null)),
     getBalance: () => pending(rpcResponse(0n as Lamports)),
     getTokenAccountsByOwner: () => pending(rpcResponse([])),
     simulateTransaction: () =>
@@ -109,4 +115,12 @@ function makeFakeRpc(overrides: FakeRpcMethods = {}): StandardRpcClient {
     getSignaturesForAddress: () => pending([]),
   };
   return { ...base, ...overrides } as unknown as StandardRpcClient;
+}
+
+/**
+ * Fake subscriptions client. The Helius adapter requires one; for tests
+ * that only exercise read-side ports, a never-resolving stub is enough.
+ */
+function makeFakeSubscriptions(): import("../../src/_base/rpc-confirm.js").StandardRpcSubscriptionsClient {
+  return {} as unknown as import("../../src/_base/rpc-confirm.js").StandardRpcSubscriptionsClient;
 }

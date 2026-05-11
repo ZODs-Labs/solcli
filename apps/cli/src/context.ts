@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createCache } from "@solcli/cache";
 import { createConfigManager } from "@solcli/config";
@@ -19,7 +20,6 @@ import type {
 } from "@solcli/contracts";
 import {
   ConfigError,
-  InternalError,
   NonInteractiveError,
   SafetyIntentRequiredError,
   SecretError,
@@ -39,11 +39,15 @@ import {
 } from "@solcli/providers";
 import { createSafetyEvaluator } from "@solcli/safety";
 import { createSecretsStore } from "@solcli/secrets";
-import type { SignerRegistry } from "@solcli/signer";
+import { createSignerRegistry, type SignerRegistry } from "@solcli/signer";
 import type { TransactionService } from "@solcli/tx";
 import { bootstrapExtensionHost, type ExtensionHost } from "./extensions/host.js";
 import { createOperations, type Operations } from "./operations/index.js";
 import { createVersionCheck } from "./version-check.js";
+import { createKeychainBackend } from "./wiring/keychain-backend.js";
+import { createSecretsCrypto } from "./wiring/secrets-crypto.js";
+import { createSignerAdapter } from "./wiring/signer-adapter-factory.js";
+import { asKitTxBackedProvider, createKitTransactionService } from "./wiring/tx-service.js";
 
 export interface GlobalFlags {
   output: OutputFormat;
@@ -229,22 +233,80 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
     flags,
     get tx(): TransactionService {
       if (_tx === undefined) {
-        // The concrete TransactionService wiring is deferred to v1 once the
-        // RPC client is available; until then commands resolve send/simulate
-        // ports through ctx.providers directly.
-        throw new InternalError(
-          "ctx.tx is not yet wired (v1-deferred); use ctx.providers ports directly",
-        );
+        const activeProvider = providers.active();
+        if (activeProvider === undefined) {
+          throw new ConfigError(
+            "ctx.tx requires a configured active provider; none registered (see `solcli doctor`)",
+          );
+        }
+        const kit = asKitTxBackedProvider(activeProvider);
+        if (kit === null) {
+          throw new ConfigError(
+            `Active provider '${activeProvider.manifest.name}' does not expose a Kit RPC client; ctx.tx is unavailable`,
+            { details: { provider: activeProvider.manifest.name } },
+          );
+        }
+        const simulatePort = activeProvider.port("simulateTransaction");
+        if (simulatePort === undefined) {
+          throw new ConfigError(
+            `Active provider '${activeProvider.manifest.name}' does not implement simulateTransaction`,
+            { details: { provider: activeProvider.manifest.name } },
+          );
+        }
+        // tx-service uses a flat string cache for idempotency keys; the
+        // global Cache is keyed by CacheKey records (namespace/call/params)
+        // which is a different shape. Use a small in-process map here.
+        const txMem = new Map<string, { value: string; expiresAt?: number }>();
+        _tx = createKitTransactionService({
+          provider: kit,
+          signers: ctx.signers,
+          simulate: simulatePort,
+          cache: {
+            async get(key: string) {
+              const entry = txMem.get(key);
+              if (!entry) return undefined;
+              if (entry.expiresAt !== undefined && entry.expiresAt < Date.now()) {
+                txMem.delete(key);
+                return undefined;
+              }
+              return entry.value;
+            },
+            async set(key: string, value: string, ttlMs?: number) {
+              const entry: { value: string; expiresAt?: number } = { value };
+              if (ttlMs !== undefined) entry.expiresAt = Date.now() + ttlMs;
+              txMem.set(key, entry);
+            },
+          },
+          logger: {
+            debug: (o: object, msg: string) => logger.debug(o, msg),
+            info: (o: object, msg: string) => logger.info(o, msg),
+            warn: (o: object, msg: string) => logger.warn(o, msg),
+            trace: (o: object, msg: string) => logger.trace(o, msg),
+          },
+          newRequestId: () => `r_${randomUUID().slice(0, 8)}`,
+        });
       }
       return _tx;
     },
     get signers(): SignerRegistry {
       if (_signers === undefined) {
-        // Same as ctx.tx: the SignerRegistry depends on the secrets-crypto
-        // and adapter-factory wiring that lands with the v1 RPC client.
-        throw new InternalError(
-          "ctx.signers is not yet wired (v1-deferred); use SignTransactionPort directly",
-        );
+        _signers = createSignerRegistry({
+          secrets: createSecretsCrypto(),
+          keychain: createKeychainBackend(secrets),
+          logger: {
+            debug: (o, msg) => logger.debug(o, msg),
+            warn: (o, msg) => logger.warn(o, msg),
+          },
+          platform: {
+            dataDir: () => paths.data,
+            auditDir: () => `${paths.data}/audit`,
+          },
+          env: process.env,
+          allowEnv: process.env["SOLCLI_SIGNER_ALLOW_ENV"] === "1",
+          clock: () => Date.now(),
+          newRequestId: () => `r_${randomUUID().slice(0, 8)}`,
+          adapterFactory: { create: createSignerAdapter },
+        });
       }
       return _signers;
     },
