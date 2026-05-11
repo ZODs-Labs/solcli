@@ -11,4 +11,5 @@ apps/cli/LICENSE
 apps/cli/.tsc-build/
 .tmp/
 *.tmp
-.claude/
+.claude/*
+!.claude/settings.json
