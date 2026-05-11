@@ -13,10 +13,20 @@ import type {
   PromptsService,
   ProviderRegistry,
   ProviderVendorConfig,
+  SafetyEvaluatePort,
   SecretsStore,
   VersionCheck,
 } from "@solcli/contracts";
-import { ConfigError, NonInteractiveError, SecretError, UsageError } from "@solcli/errors";
+import {
+  ConfigError,
+  InternalError,
+  NonInteractiveError,
+  SafetyIntentRequiredError,
+  SecretError,
+  UsageError,
+  ValidationError,
+} from "@solcli/errors";
+import { createDevnullSink, createEventWriter, type EventWriter } from "@solcli/events";
 import { buildLogger } from "@solcli/logger";
 import { createFormatter } from "@solcli/output";
 import { buildPaths, registerAbortController } from "@solcli/platform";
@@ -27,7 +37,11 @@ import {
   createProviderRegistry,
   createTritonProvider,
 } from "@solcli/providers";
+import { createSafetyEvaluator } from "@solcli/safety";
 import { createSecretsStore } from "@solcli/secrets";
+import type { SignerRegistry } from "@solcli/signer";
+import type { TransactionService } from "@solcli/tx";
+import { bootstrapExtensionHost, type ExtensionHost } from "./extensions/host.js";
 import { createOperations, type Operations } from "./operations/index.js";
 import { createVersionCheck } from "./version-check.js";
 
@@ -58,6 +72,11 @@ export interface Context {
   portNames: readonly PortName[];
   abortController: AbortController;
   flags: GlobalFlags;
+  readonly tx: TransactionService;
+  readonly signers: SignerRegistry;
+  readonly safety: SafetyEvaluatePort;
+  readonly events: EventWriter;
+  readonly plugins: ExtensionHost;
   abort(reason?: string): void;
   teardown(): Promise<void>;
 }
@@ -69,12 +88,19 @@ export interface ErrorFactory {
     opts?: { details?: Record<string, unknown> },
   ): NonInteractiveError;
   secret(message: string, opts?: { details?: Record<string, unknown> }): SecretError;
+  validation(message: string, opts?: { details?: Record<string, unknown> }): ValidationError;
+  safetyIntent(
+    message: string,
+    opts?: { details?: Record<string, unknown> },
+  ): SafetyIntentRequiredError;
 }
 
 const errors: ErrorFactory = {
   usage: (message, opts) => new UsageError(message, opts),
   nonInteractive: (message, opts) => new NonInteractiveError(message, opts),
   secret: (message, opts) => new SecretError(message, opts),
+  validation: (message, opts) => new ValidationError(message, opts),
+  safetyIntent: (message, opts) => new SafetyIntentRequiredError(message, opts),
 };
 
 const storage = new AsyncLocalStorage<Context>();
@@ -169,6 +195,15 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
   const abortController = new AbortController();
   registerAbortController(abortController);
 
+  // Lazy holders for the post-foundation services. Cold-start budget forbids
+  // constructing these on `solcli --help` or `solcli --version`; the getters
+  // below materialize each on first access.
+  let _tx: TransactionService | undefined;
+  let _signers: SignerRegistry | undefined;
+  let _safety: SafetyEvaluatePort | undefined;
+  let _events: EventWriter | undefined;
+  let _plugins: ExtensionHost | undefined;
+
   const ctx: Context = {
     paths,
     logger,
@@ -184,6 +219,41 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
     portNames: ALL_PORT_NAMES,
     abortController,
     flags,
+    get tx(): TransactionService {
+      if (_tx === undefined) {
+        // The concrete TransactionService wiring is deferred to v1 once the
+        // RPC client is available; until then commands resolve send/simulate
+        // ports through ctx.providers directly.
+        throw new InternalError(
+          "ctx.tx is not yet wired (v1-deferred); use ctx.providers ports directly",
+        );
+      }
+      return _tx;
+    },
+    get signers(): SignerRegistry {
+      if (_signers === undefined) {
+        // Same as ctx.tx: the SignerRegistry depends on the secrets-crypto
+        // and adapter-factory wiring that lands with the v1 RPC client.
+        throw new InternalError(
+          "ctx.signers is not yet wired (v1-deferred); use SignTransactionPort directly",
+        );
+      }
+      return _signers;
+    },
+    get safety(): SafetyEvaluatePort {
+      if (_safety === undefined) _safety = createSafetyEvaluator();
+      return _safety;
+    },
+    get events(): EventWriter {
+      if (_events === undefined) {
+        _events = createEventWriter({ sink: createDevnullSink() });
+      }
+      return _events;
+    },
+    get plugins(): ExtensionHost {
+      if (_plugins === undefined) _plugins = bootstrapExtensionHost({ paths, logger });
+      return _plugins;
+    },
     abort(reason?: string) {
       try {
         abortController.abort(reason ?? "abort");
@@ -196,6 +266,13 @@ export async function buildContext(flags: GlobalFlags): Promise<Context> {
         await logger.flush();
       } catch {
         // best-effort
+      }
+      if (_events !== undefined) {
+        try {
+          await _events.close();
+        } catch {
+          // best-effort
+        }
       }
     },
   };

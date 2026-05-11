@@ -13,6 +13,12 @@
     { "path": "./packages/cache" },
     { "path": "./packages/providers" },
     { "path": "./packages/solana-stubs" },
+    { "path": "./packages/tx" },
+    { "path": "./packages/signer" },
+    { "path": "./packages/safety" },
+    { "path": "./packages/events" },
+    { "path": "./packages/protocol-native" },
+    { "path": "./packages/protocol-spl-token" },
     { "path": "./apps/cli" }
   ]
 }
